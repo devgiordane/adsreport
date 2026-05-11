@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import Callable, Generic, NoReturn, TypeVar
 
 T = TypeVar("T")
-E = TypeVar("E", bound=Exception)
+E = TypeVar("E")
 U = TypeVar("U")
 
 
@@ -60,7 +60,9 @@ class Err(Generic[E]):
         return True
 
     def unwrap(self) -> NoReturn:
-        raise self.error
+        if isinstance(self.error, BaseException):
+            raise self.error
+        raise ValueError(str(self.error))
 
     def unwrap_err(self) -> E:
         return self.error

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import flask_login
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from adsreport.constants import DEFAULT_ADMIN_USERNAME
@@ -27,11 +26,7 @@ class AuthService:
             return Err(AuthError("Invalid username or password."))
         user.last_login_at = datetime.now(tz=timezone.utc)
         self._repo.save(user)
-        flask_login.login_user(user, remember=False)
         return Ok(user)
-
-    def logout(self) -> None:
-        flask_login.logout_user()
 
     def create_admin(self, username: str, password: str) -> Result[User, ValidationError]:
         if len(password) < 8:

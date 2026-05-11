@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -18,10 +19,10 @@ class Campaign(Base, TimestampMixin):
     objective: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
     effective_status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
-    daily_budget_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    lifetime_budget_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    stop_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    daily_budget_cents: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    lifetime_budget_cents: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    stop_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     ad_account: Mapped["AdAccount"] = relationship(back_populates="campaigns")  # type: ignore[name-defined]  # noqa: F821
     adsets: Mapped[list["AdSet"]] = relationship(back_populates="campaign", lazy="dynamic")  # type: ignore[name-defined]  # noqa: F821

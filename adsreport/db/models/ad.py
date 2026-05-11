@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,6 +19,6 @@ class Ad(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
     effective_status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
-    creative_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    creative_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     adset: Mapped["AdSet"] = relationship(back_populates="ads")  # type: ignore[name-defined]  # noqa: F821

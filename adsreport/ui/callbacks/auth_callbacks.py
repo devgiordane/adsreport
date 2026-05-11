@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import flask
+import flask_login
 from dash import Input, Output, State, callback, no_update
 
 from adsreport.i18n import t
@@ -29,5 +29,6 @@ def handle_login(
 
     result = AuthService().login(username.strip(), password)
     if result.is_ok():
+        flask_login.login_user(result.unwrap(), remember=False)
         return "/", ""
     return no_update, t("auth.login.error.invalid")

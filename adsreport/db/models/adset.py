@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -18,12 +19,12 @@ class AdSet(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
     effective_status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
-    daily_budget_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    lifetime_budget_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    daily_budget_cents: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    lifetime_budget_cents: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     optimization_goal: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     billing_event: Mapped[str] = mapped_column(String(32), nullable=False, default="")
-    start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     campaign: Mapped["Campaign"] = relationship(back_populates="adsets")  # type: ignore[name-defined]  # noqa: F821
     ads: Mapped[list["Ad"]] = relationship(back_populates="adset", lazy="dynamic")  # type: ignore[name-defined]  # noqa: F821

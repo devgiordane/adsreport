@@ -37,8 +37,8 @@ def test_ptbr_interpolation():
 
 def test_key_parity():
     locales_dir = Path(__file__).parent.parent.parent / "adsreport" / "i18n" / "locales"
-    en = json.loads((locales_dir / "en-US.json").read_text())
-    pt = json.loads((locales_dir / "pt-BR.json").read_text())
+    en = json.loads((locales_dir / "en-US.json").read_text(encoding="utf-8"))
+    pt = json.loads((locales_dir / "pt-BR.json").read_text(encoding="utf-8"))
 
     missing_in_pt = set(en.keys()) - set(pt.keys())
     missing_in_en = set(pt.keys()) - set(en.keys())
