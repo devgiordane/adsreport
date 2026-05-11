@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -24,8 +24,11 @@ class AuthService:
             return Err(AuthError("Invalid username or password."))
         if not check_password_hash(user.password_hash, password):
             return Err(AuthError("Invalid username or password."))
-        user.last_login_at = datetime.now(tz=timezone.utc)
+        user.last_login_at = datetime.now(tz=UTC)
         self._repo.save(user)
+        from adsreport.services.config_loader import reload_config
+
+        reload_config(password=password)
         return Ok(user)
 
     def create_admin(self, username: str, password: str) -> Result[User, ValidationError]:

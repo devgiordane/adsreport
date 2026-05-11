@@ -2,20 +2,22 @@
 
 from __future__ import annotations
 
+from adsreport.config import get_config
 from adsreport.core.logging import get_logger
+from adsreport.core.time import date_range
+from adsreport.db.session import session_scope
+from adsreport.services.ads_sync_service import AdsSyncService
+from adsreport.services.facebook_client import FacebookClient
 
 logger = get_logger(__name__)
 
 
 def run_sync(triggered_by: str = "scheduler") -> None:
     """Sync all active ad accounts for the configured lookback window."""
-    from adsreport.config import get_config
-    from adsreport.core.time import date_range
-    from adsreport.repositories.ad_account_repo import AdAccountRepository
-    from adsreport.services.ads_sync_service import AdsSyncService
-    from adsreport.services.facebook_client import FacebookClient
-
     config = get_config()
+    if config.facebook.credentials_locked:
+        logger.warning("sync_skipped", reason="facebook_credentials_locked")
+        return
     if not config.is_facebook_configured():
         logger.warning("sync_skipped", reason="facebook_not_configured")
         return
@@ -27,9 +29,10 @@ def run_sync(triggered_by: str = "scheduler") -> None:
         config.facebook.api_version,
     )
 
-    service = AdsSyncService(fb)
     date_from, date_to = date_range(f"last_{config.sync.lookback_days}_days")
-    runs = service.sync_all_accounts(date_from, date_to, triggered_by)
+    with session_scope() as session:
+        service = AdsSyncService(fb, session=session)
+        runs = service.sync_all_accounts(date_from, date_to, triggered_by)
 
     for run in runs:
         logger.info("sync_run_complete", account_id=run.ad_account_id, status=run.status,

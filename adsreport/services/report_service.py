@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from typing import TYPE_CHECKING
 
 from adsreport.repositories.insight_repo import InsightRepository
+
+if TYPE_CHECKING:
+    from datetime import date
+
+    from sqlalchemy.orm import Session
+
+    from adsreport.db.models.insight import Insight
 
 
 @dataclass
@@ -71,8 +78,17 @@ class ReportData:
 
 
 class ReportService:
-    def __init__(self) -> None:
-        self._insights = InsightRepository()
+    def __init__(self, session: Session | None = None) -> None:
+        self._insights = InsightRepository(session)
+
+    def close(self) -> None:
+        self._insights.close()
+
+    def __enter__(self) -> ReportService:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        self.close()
 
     def get_dashboard_data(
         self,
@@ -101,16 +117,16 @@ class ReportService:
             has_data=True,
         )
 
-    def _aggregate(self, insights: list[object]) -> KPISummary:
+    def _aggregate(self, insights: list[Insight]) -> KPISummary:
         s = KPISummary()
         for i in insights:
-            s.impressions += i.impressions  # type: ignore[union-attr]
-            s.clicks += i.clicks  # type: ignore[union-attr]
-            s.spend_cents += i.spend_cents  # type: ignore[union-attr]
-            s.reach += i.reach  # type: ignore[union-attr]
-            s.leads += i.leads  # type: ignore[union-attr]
-            s.conversions += i.conversions  # type: ignore[union-attr]
-            s.purchase_value_cents += i.purchase_value_cents  # type: ignore[union-attr]
+            s.impressions += i.impressions
+            s.clicks += i.clicks
+            s.spend_cents += i.spend_cents
+            s.reach += i.reach
+            s.leads += i.leads
+            s.conversions += i.conversions
+            s.purchase_value_cents += i.purchase_value_cents
         if s.impressions:
             s.ctr = s.clicks / s.impressions * 100
             s.cpm_cents = round(s.spend_cents / s.impressions * 1000)
@@ -120,31 +136,31 @@ class ReportService:
             s.roas = s.purchase_value_cents / s.spend_cents
         return s
 
-    def _build_time_series(self, insights: list[object]) -> list[TimeSeriesPoint]:
+    def _build_time_series(self, insights: list[Insight]) -> list[TimeSeriesPoint]:
         by_date: dict[date, TimeSeriesPoint] = {}
         for i in insights:
-            dt = i.date  # type: ignore[union-attr]
+            dt = i.date
             if dt not in by_date:
                 by_date[dt] = TimeSeriesPoint(date=dt, impressions=0, clicks=0, spend_cents=0, leads=0, conversions=0)
             p = by_date[dt]
-            p.impressions += i.impressions  # type: ignore[union-attr]
-            p.clicks += i.clicks  # type: ignore[union-attr]
-            p.spend_cents += i.spend_cents  # type: ignore[union-attr]
-            p.leads += i.leads  # type: ignore[union-attr]
-            p.conversions += i.conversions  # type: ignore[union-attr]
+            p.impressions += i.impressions
+            p.clicks += i.clicks
+            p.spend_cents += i.spend_cents
+            p.leads += i.leads
+            p.conversions += i.conversions
         return sorted(by_date.values(), key=lambda x: x.date)
 
-    def _top_campaigns(self, insights: list[object], limit: int = 10) -> list[CampaignRow]:
+    def _top_campaigns(self, insights: list[Insight], limit: int = 10) -> list[CampaignRow]:
         by_campaign: dict[str, CampaignRow] = {}
         for i in insights:
-            eid = i.entity_id  # type: ignore[union-attr]
+            eid = i.entity_id
             if eid not in by_campaign:
                 by_campaign[eid] = CampaignRow(entity_id=eid, name=eid, impressions=0, clicks=0, spend_cents=0, ctr=0.0, roas=0.0, leads=0)
             r = by_campaign[eid]
-            r.impressions += i.impressions  # type: ignore[union-attr]
-            r.clicks += i.clicks  # type: ignore[union-attr]
-            r.spend_cents += i.spend_cents  # type: ignore[union-attr]
-            r.leads += i.leads  # type: ignore[union-attr]
+            r.impressions += i.impressions
+            r.clicks += i.clicks
+            r.spend_cents += i.spend_cents
+            r.leads += i.leads
         for r in by_campaign.values():
             if r.impressions:
                 r.ctr = r.clicks / r.impressions * 100

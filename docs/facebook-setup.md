@@ -1,71 +1,133 @@
-# Facebook Setup Guide
+# Configurando as credenciais do Facebook
 
-This guide walks you through creating a Facebook Developer app and generating a long-lived access token. This takes about 5 minutes and is completely free.
+Este guia mostra como criar um app no Facebook for Developers e gerar um token de acesso de longa duração (90 dias). O processo leva cerca de 5 minutos e é totalmente gratuito.
 
-## Why you need this
+> 💡 O AdsReport opera em **modo de desenvolvimento da Marketing API**. Você usa seu próprio app para ler seus próprios dados de anúncios. Não há aprovação da Meta, nem custo, nem App Review necessário.
 
-AdsReport operates in **Facebook Marketing API development mode** — you use your own app credentials to read your own ad data. No App Review, no Meta approval, no cost.
+---
 
-## Step 1: Create a Facebook Developer account
+## Pré-requisitos
 
-1. Go to [developers.facebook.com](https://developers.facebook.com).
-2. Log in with your Facebook account.
-3. Click **Get Started** if prompted.
+- Uma conta no Facebook com acesso às contas de anúncio que você quer monitorar
+- Acesso a [developers.facebook.com](https://developers.facebook.com)
 
-## Step 2: Create a new app
+---
 
-1. Click **My Apps** → **Create App**.
-2. Select **Other** as the use case, then **Business** as the app type.
-3. Give it a name (e.g., `AdsReport Local`) and click **Create App**.
+## Passo 1 — Criar o app
 
-## Step 3: Add the Marketing API product
+Acesse [developers.facebook.com/apps](https://developers.facebook.com/apps) e clique em **Criar aplicativo**.
 
-1. In your app dashboard, click **Add Product**.
-2. Find **Marketing API** and click **Set Up**.
+![Tela inicial — lista de apps](screenshots/create-app-01.png)
 
-## Step 4: Generate an access token
+Na tela seguinte, selecione **Outros** como caso de uso e clique em **Avançar**.
 
-1. In the left sidebar, go to **Tools** → **Graph API Explorer**.
-2. Under **Facebook App**, select the app you just created.
-3. Under **User or Page**, click **Generate Access Token**.
-4. Check these permissions:
-   - `ads_read`
-   - `ads_management` (for metadata)
-   - `read_insights`
-   - `business_management`
-5. Click **Generate Access Token** and authorize the app.
+![Selecionar caso de uso](screenshots/create-app-02.png)
 
-This token is short-lived (1–2 hours). Continue to Step 5 to extend it.
+Escolha o tipo **Empresa** e clique em **Avançar**.
 
-## Step 5: Get a long-lived token
+![Selecionar tipo de app](screenshots/create-app-03.png)
 
-Short-lived tokens expire quickly. You need a long-lived token (60 days) for AdsReport to work reliably.
+Preencha o nome do app (ex.: `AdsReport Local`) e o e-mail de contato. O campo "Conta Business" é opcional. Clique em **Criar app**.
 
-1. Go to **Tools** → **Access Token Debugger**.
-2. Paste your short-lived token and click **Debug**.
-3. Click **Extend Access Token** at the bottom.
-4. Copy the new long-lived token.
+![Preencher nome do app](screenshots/create-app-04.png)
 
-> **Note:** Long-lived tokens expire after 60 days. When your token expires, you'll see a sync error in AdsReport. Go to Settings → Facebook to update it.
+O Facebook pode pedir para você confirmar a senha da sua conta. Após confirmar, o painel do app será aberto.
 
-## Step 6: Get your App ID and App Secret
+![Painel do app criado](screenshots/create-app-05.png)
 
-1. In your app dashboard, go to **Settings** → **Basic**.
-2. Copy the **App ID** and **App Secret** (click Show to reveal it).
+No painel, localize o produto **Marketing API** e clique em **Configurar**.
 
-## Step 7: Enter credentials in AdsReport
+![Adicionar produto Marketing API](screenshots/create-app-06.png)
 
-During onboarding (Step 3), enter:
-- **App ID** — from Settings → Basic
-- **App Secret** — from Settings → Basic
-- **Access Token** — the long-lived token from Step 5
+---
 
-Click **Test connection**. AdsReport will verify the credentials and show a list of your ad accounts.
+## Passo 2 — Obter o App ID e o App Secret
 
-## Troubleshooting
+No menu lateral, vá em **Configurações → Básico**.
 
-**"Invalid OAuth access token"** — The token expired or was copied incorrectly. Regenerate it from Step 4.
+Copie o **ID do Aplicativo** e clique em **Mostrar** ao lado do **Chave Secreta do Aplicativo** para copiá-la também.
 
-**"No ad accounts found"** — Your Facebook user isn't an admin or analyst on any ad account. Ask the account admin to add you.
+![Configurações básicas — App ID e App Secret](screenshots/settings-basic.png)
 
-**"App not in allowed modes"** — Make sure the app is in Development mode (top bar in the dashboard shows "Development").
+Guarde os dois valores — você vai precisar deles no onboarding do AdsReport.
+
+---
+
+## Passo 3 — Gerar o Access Token
+
+Acesse o [Explorador da Graph API](https://developers.facebook.com/tools/explorer/).
+
+No topo direito, confirme que o app selecionado é o que você criou.
+
+### Adicionar as permissões necessárias
+
+Clique no campo de permissões e adicione cada uma das seguintes:
+
+| Permissão | Para que serve |
+|---|---|
+| `ads_read` | Ler dados de campanhas e anúncios |
+| `ads_management` | Ler metadados das contas |
+| `read_insights` | Acessar os Insights de performance |
+| `business_management` | Listar contas de anúncio da Business |
+| `pages_read_engagement` | Informações de páginas vinculadas |
+| `pages_show_list` | Listar páginas do usuário |
+
+![Explorador com permissões selecionadas](screenshots/explorer-permissions.png)
+
+### Gerar o token
+
+Clique em **Gerar token de acesso**.
+
+O Facebook vai abrir um pop-up pedindo para você escolher quais Páginas e Contas Business receberão acesso. Marque **todas** ou apenas as que você usa no AdsReport, e confirme.
+
+![Pop-up de autorização](screenshots/explorer-auth-popup.png)
+
+O token gerado aparece no campo **Token de acesso**. Copie-o.
+
+> ⚠️ Este token dura **1–2 horas**. Continue para o Passo 4 para estendê-lo para **90 dias** antes de usar no AdsReport.
+
+---
+
+## Passo 4 — Estender o token para 90 dias
+
+Acesse o [Depurador de Token de Acesso](https://developers.facebook.com/tools/debug/accesstoken/).
+
+Cole o token copiado no campo e clique em **Depurar**.
+
+A página vai mostrar as informações do token. Role até o final e clique em **Estender token de acesso**.
+
+![Botão estender token](screenshots/token-debugger.png)
+
+Um novo token será gerado com validade de **90 dias**. Copie esse novo token — ele é o que você vai usar no AdsReport.
+
+> 💡 Quando o token expirar (após ~90 dias), você receberá um erro de sincronização no AdsReport. Repita o Passo 3 e o Passo 4 e atualize o token em **Configurações → Facebook**.
+
+---
+
+## Passo 5 — Inserir as credenciais no AdsReport
+
+Durante o onboarding (Passo 3 do wizard), preencha:
+
+| Campo | Valor |
+|---|---|
+| **App ID** | ID do Aplicativo (Configurações → Básico) |
+| **App Secret** | Chave Secreta do Aplicativo (Configurações → Básico) |
+| **Access Token** | Token de 90 dias gerado no Passo 4 |
+
+Clique em **Testar conexão**. O AdsReport vai verificar as credenciais e listar as contas de anúncio disponíveis.
+
+---
+
+## Solução de problemas
+
+**"Token de OAuth inválido" / "Invalid OAuth access token"**
+O token expirou ou foi copiado incorretamente. Repita os Passos 3 e 4.
+
+**"Nenhuma conta de anúncio encontrada"**
+Seu usuário do Facebook não é admin nem analista de nenhuma conta de anúncio. Peça ao administrador da conta para adicionar você com o papel de **Analista**.
+
+**"Permissão negada" / `ads_read` ausente**
+Você não marcou todas as permissões no Explorador. Repita o Passo 3 adicionando as permissões da lista.
+
+**"App não está no modo correto"**
+Confirme que o app está em **Modo de desenvolvimento** (barra superior do painel mostra "Desenvolvimento").

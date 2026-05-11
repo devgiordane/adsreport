@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
 
+from adsreport.constants import SALT_FILENAME
 from adsreport.core.crypto import decrypt, encrypt
 from adsreport.core.errors import CryptoError
 
@@ -35,3 +39,15 @@ def test_same_plaintext_same_password_produces_different_ciphertexts():
     ct2 = encrypt("secret", password)
     assert ct1 != ct2
     assert decrypt(ct1, password) == decrypt(ct2, password) == "secret"
+
+
+def test_deleted_salt_fails_loudly_instead_of_recreating_key():
+    password = "correct-password"
+    ciphertext = encrypt("secret", password)
+    salt_path = Path(os.environ["ADSREPORT_DATA_DIR"]) / SALT_FILENAME
+    salt_path.unlink()
+
+    with pytest.raises(CryptoError, match="salt file is missing"):
+        decrypt(ciphertext, password)
+
+    assert not salt_path.exists()

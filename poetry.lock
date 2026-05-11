@@ -4001,4 +4001,4 @@ dev = ["factory-boy", "hatch", "mutmut", "mypy", "pytest", "pytest-asyncio", "py
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "9eb135664e73b55bed1ec5f7bf1f5c007592d4072f486a98b63f96322aeb1dd9"
+content-hash = "c764c55e138bef79861e061e686fea3df430580e25ba78ac98338d7bf2976ecf"

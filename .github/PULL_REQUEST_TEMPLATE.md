@@ -4,7 +4,7 @@
 
 ## Checklist
 
-- [ ] `hatch run check` passes (lint + typecheck + tests)
+- [ ] `poetry run pytest` + `poetry run ruff check adsreport` + `poetry run mypy adsreport` passam
 - [ ] New UI strings use `t("key")` and exist in **both** `en-US.json` and `pt-BR.json`
 - [ ] New service code has unit tests
 - [ ] No hardcoded credentials, secrets, or `.env` reading added

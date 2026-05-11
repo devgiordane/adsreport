@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import plotly.graph_objects as go
-from dash import Input, Output, State, callback, no_update
+from dash import Input, Output, callback
 
 from adsreport.core.time import date_range, format_currency, format_number, format_percent
+from adsreport.db.session import session_scope
 from adsreport.i18n import t
 from adsreport.repositories.ad_account_repo import AdAccountRepository
 from adsreport.services.report_service import ReportService
-from adsreport.ui.components.chart_block import chart_block, empty_figure
+from adsreport.ui.components.chart_block import chart_block
 from adsreport.ui.components.data_table import data_table
 from adsreport.ui.components.empty_state import empty_state
 from adsreport.ui.components.kpi_card import kpi_card
@@ -30,21 +31,26 @@ def update_dashboard(
 ) -> tuple[object, object, object, object]:
     period = period or "last_7_days"
 
-    account_repo = AdAccountRepository()
-    if account_ids:
-        accounts = [account_repo.get_by_id(aid) for aid in account_ids if account_repo.get_by_id(aid)]
-    else:
-        default = account_repo.get_default()
-        accounts = [default] if default else account_repo.get_all_active()
+    with session_scope() as session:
+        account_repo = AdAccountRepository(session)
+        if account_ids:
+            accounts = []
+            for account_id in account_ids:
+                account = account_repo.get_by_id(account_id)
+                if account is not None:
+                    accounts.append(account)
+        else:
+            default = account_repo.get_default()
+            accounts = [default] if default else account_repo.get_all_active()
 
-    if not accounts:
-        es = empty_state("no_data", on_cta_id="dashboard-sync-btn")
-        return es, es, es, es
+        if not accounts:
+            es = empty_state("no_data", on_cta_id="dashboard-sync-btn")
+            return es, es, es, es
 
-    date_from, date_to = date_range(period)
-    account_id = accounts[0].id  # type: ignore[union-attr]
+        date_from, date_to = date_range(period)
+        account_id = accounts[0].id
 
-    report = ReportService().get_dashboard_data(account_id, date_from, date_to)
+        report = ReportService(session).get_dashboard_data(account_id, date_from, date_to)
 
     if not report.has_data:
         es = empty_state("no_data", on_cta_id="dashboard-sync-btn")

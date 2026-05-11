@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 # ── Dark theme tokens ─────────────────────────────────────────────────────────
 DARK = {
     "bg": "#0B0D10",
@@ -43,7 +45,7 @@ def get_tokens(theme: str = "dark") -> dict[str, str]:
     return DARK if theme == "dark" else LIGHT
 
 
-def plotly_template(theme: str = "dark") -> dict[str, object]:
+def plotly_template(theme: str = "dark") -> dict[str, Any]:
     t = get_tokens(theme)
     return {
         "layout": {

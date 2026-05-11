@@ -7,12 +7,14 @@ Thanks for your interest! AdsReport is a community project and contributions of 
 ```bash
 git clone https://github.com/adsreport/adsreport
 cd adsreport
-pip install hatch
-hatch run dev          # starts dev server on :8050
-hatch run test         # runs the test suite
-hatch run lint         # ruff check
-hatch run typecheck    # mypy
+poetry install --all-extras       # installs dev tools (pytest, ruff, mypy)
+poetry run adsreport start        # dev server on :8050
+poetry run pytest tests/unit/     # test suite
+poetry run ruff check adsreport   # lint
+poetry run mypy adsreport         # type-check
 ```
+
+Full setup guide (including the Windows system Python issue) at [docs/installation/source.md](docs/installation/source.md).
 
 ## What we need help with
 
@@ -35,7 +37,7 @@ Good first issues (labeled [`good-first-issue`](https://github.com/adsreport/ads
 
 ## Code style
 
-- `ruff` for linting and formatting. Run `hatch run fmt` before committing.
+- `ruff` for linting and formatting. Run `poetry run ruff format adsreport` before committing.
 - `mypy --strict` for types.
 - SQLAlchemy 2.x style (`Mapped[...]`, `mapped_column`). No legacy `Column(...)`.
 - Service layer only — no Facebook SDK calls from UI callbacks. UI → Service → Repository → DB.
@@ -51,7 +53,9 @@ See [docs/i18n-contributing.md](docs/i18n-contributing.md) for the full guide. S
 
 ## Pull request checklist
 
-- [ ] `hatch run check` passes (lint + types + tests)
+- [ ] `poetry run pytest` passes
+- [ ] `poetry run ruff check adsreport` passes
+- [ ] `poetry run mypy adsreport` passes
 - [ ] New public functions have type hints
 - [ ] New UI strings use `t("key")` and exist in both `en-US.json` and `pt-BR.json`
 - [ ] PR description explains *why*, not just *what*

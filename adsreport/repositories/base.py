@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar
-
-from sqlalchemy.orm import Session
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from adsreport.db.session import get_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 T = TypeVar("T")
 
@@ -15,6 +16,7 @@ class BaseRepository(Generic[T]):
     model_class: type[T]
 
     def __init__(self, session: Session | None = None) -> None:
+        self._owns_session = session is None
         self._session = session or get_session()
 
     @property
@@ -39,8 +41,14 @@ class BaseRepository(Generic[T]):
         self.session.delete(obj)
         self.session.commit()
 
-    def __del__(self) -> None:
-        try:
+    def close(self) -> None:
+        if self._owns_session:
             self._session.close()
-        except Exception:
-            pass
+
+    def __enter__(self) -> BaseRepository[T]:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        if exc_type is not None:
+            self._session.rollback()
+        self.close()

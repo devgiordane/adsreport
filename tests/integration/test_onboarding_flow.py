@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from adsreport.services.onboarding_service import OnboardingService
 
 
@@ -27,12 +25,13 @@ def test_complete_onboarding_sets_flag(session):
         sync_interval=60,
     )
     # Complete (without triggering actual sync)
-    from adsreport.services.settings_service import SettingsService
     from adsreport.constants import SettingKey
+    from adsreport.services.settings_service import SettingsService
 
-    SettingsService().set(SettingKey.ONBOARDING_COMPLETED, True)
+    with SettingsService() as settings:
+        settings.set(SettingKey.ONBOARDING_COMPLETED, True)
 
-    from adsreport.config import reload_config
+    from adsreport.services.config_loader import reload_config
 
     config = reload_config()
     assert config.onboarding_completed is True

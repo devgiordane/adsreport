@@ -5,14 +5,15 @@ from dash import dcc, html
 from adsreport.i18n import t
 
 
-PERIOD_OPTIONS = [
-    {"label": t("filter.period.today"), "value": "today"},
-    {"label": t("filter.period.yesterday"), "value": "yesterday"},
-    {"label": t("filter.period.last_7d"), "value": "last_7_days"},
-    {"label": t("filter.period.last_14d"), "value": "last_14_days"},
-    {"label": t("filter.period.last_30d"), "value": "last_30_days"},
-    {"label": t("filter.period.mtd"), "value": "mtd"},
-]
+def period_options() -> list[dict[str, str]]:
+    return [
+        {"label": t("filter.period.today"), "value": "today"},
+        {"label": t("filter.period.yesterday"), "value": "yesterday"},
+        {"label": t("filter.period.last_7d"), "value": "last_7_days"},
+        {"label": t("filter.period.last_14d"), "value": "last_14_days"},
+        {"label": t("filter.period.last_30d"), "value": "last_30_days"},
+        {"label": t("filter.period.mtd"), "value": "mtd"},
+    ]
 
 
 def filter_bar(
@@ -23,7 +24,7 @@ def filter_bar(
         [
             dcc.Dropdown(
                 id="filter-period",
-                options=PERIOD_OPTIONS,
+                options=period_options(),
                 value="last_7_days",
                 clearable=False,
                 style={"minWidth": "160px"},

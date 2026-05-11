@@ -1,153 +1,114 @@
-"""Onboarding wizard callbacks — step rendering and navigation."""
+"""Onboarding wizard callbacks.
+
+All step components live permanently in the DOM (rendered by onboarding.py).
+Visibility is toggled via style updates — this avoids the Dash error
+'nonexistent object used in State' that occurs when components are
+dynamically added/removed from the layout.
+"""
 
 from __future__ import annotations
 
-from dash import Input, Output, State, callback, dcc, html, no_update
+from dash import Input, Output, State, callback, html, no_update
 
 from adsreport.i18n import t
 from adsreport.services.onboarding_service import OnboardingService
 
+_SHOW: dict = {}
+_HIDE: dict = {"display": "none"}
 
-def _render_step(step: int, data: dict[str, object]) -> object:
-    match step:
-        case 1:
-            return html.Div(
-                [
-                    html.H2(t("onboarding.step1.title"), style={"fontWeight": "700", "marginBottom": "8px"}),
-                    html.P(t("onboarding.step1.subtitle"), style={"color": "var(--text-muted)", "marginBottom": "20px"}),
-                    dcc.Dropdown(
-                        id="onboarding-locale",
-                        options=[
-                            {"label": "Português (Brasil)", "value": "pt-BR"},
-                            {"label": "English (US)", "value": "en-US"},
-                        ],
-                        value=data.get("locale", "pt-BR"),
-                        clearable=False,
-                    ),
-                ]
-            )
-        case 2:
-            return html.Div(
-                [
-                    html.H2(t("onboarding.step2.title"), style={"fontWeight": "700", "marginBottom": "20px"}),
-                    html.Div(
-                        [
-                            html.Div([
-                                html.Label(t("onboarding.step2.username"), className="form-label"),
-                                dcc.Input(id="onboarding-username", type="text",
-                                          placeholder=t("onboarding.step2.username.placeholder"),
-                                          value=str(data.get("username", "")),
-                                          className="form-input", style={"width": "100%"}),
-                            ], className="form-group"),
-                            html.Div([
-                                html.Label(t("onboarding.step2.password"), className="form-label"),
-                                dcc.Input(id="onboarding-password", type="password",
-                                          placeholder=t("onboarding.step2.password.placeholder"),
-                                          className="form-input", style={"width": "100%"}),
-                            ], className="form-group"),
-                            html.Div([
-                                html.Label(t("onboarding.step2.password_confirm"), className="form-label"),
-                                dcc.Input(id="onboarding-password-confirm", type="password",
-                                          className="form-input", style={"width": "100%"}),
-                            ], className="form-group"),
-                        ],
-                        style={"display": "flex", "flexDirection": "column", "gap": "16px"},
-                    ),
-                ]
-            )
-        case 3:
-            return html.Div(
-                [
-                    html.H2(t("onboarding.step3.title"), style={"fontWeight": "700", "marginBottom": "8px"}),
-                    html.P(t("onboarding.step3.subtitle"), style={"color": "var(--text-muted)", "marginBottom": "20px"}),
-                    html.Div(
-                        [
-                            html.Div([
-                                html.Label(t("onboarding.step3.app_id"), className="form-label"),
-                                dcc.Input(id="onboarding-app-id", type="text",
-                                          value=str(data.get("app_id", "")),
-                                          className="form-input", style={"width": "100%"}),
-                            ], className="form-group"),
-                            html.Div([
-                                html.Label(t("onboarding.step3.app_secret"), className="form-label"),
-                                dcc.Input(id="onboarding-app-secret", type="password",
-                                          className="form-input", style={"width": "100%"}),
-                            ], className="form-group"),
-                            html.Div([
-                                html.Label(t("onboarding.step3.access_token"), className="form-label"),
-                                dcc.Input(id="onboarding-access-token", type="password",
-                                          className="form-input", style={"width": "100%"}),
-                            ], className="form-group"),
-                            html.Button(t("onboarding.step3.test_connection"),
-                                        id="onboarding-test-btn", className="btn btn--secondary"),
-                            html.Div(id="onboarding-connection-result"),
-                        ],
-                        style={"display": "flex", "flexDirection": "column", "gap": "16px"},
-                    ),
-                ]
-            )
-        case 4:
-            accounts = data.get("fb_accounts") or []
-            options = [{"label": a.get("name", a.get("id")), "value": a.get("id")} for a in accounts]
-            return html.Div(
-                [
-                    html.H2(t("onboarding.step4.title"), style={"fontWeight": "700", "marginBottom": "8px"}),
-                    html.P(t("onboarding.step4.subtitle"), style={"color": "var(--text-muted)", "marginBottom": "20px"}),
-                    dcc.RadioItems(id="onboarding-account-select", options=options, value=options[0]["value"] if options else None),
-                ]
-            )
-        case 5:
-            return html.Div(
-                [
-                    html.H2(t("onboarding.step5.title"), style={"fontWeight": "700", "marginBottom": "20px"}),
-                    html.Div([
-                        html.Label(t("onboarding.step5.theme"), className="form-label"),
-                        dcc.RadioItems(
-                            id="onboarding-theme",
-                            options=[
-                                {"label": t("settings.appearance.theme.dark"), "value": "dark"},
-                                {"label": t("settings.appearance.theme.light"), "value": "light"},
-                            ],
-                            value=str(data.get("theme", "dark")),
-                            inline=True,
-                        ),
-                    ], className="form-group"),
-                    html.Div([
-                        html.Label(t("onboarding.step5.range"), className="form-label"),
-                        dcc.Dropdown(
-                            id="onboarding-range",
-                            options=[
-                                {"label": t("filter.period.last_7d"), "value": "last_7_days"},
-                                {"label": t("filter.period.last_14d"), "value": "last_14_days"},
-                                {"label": t("filter.period.last_30d"), "value": "last_30_days"},
-                            ],
-                            value="last_7_days",
-                            clearable=False,
-                        ),
-                    ], className="form-group"),
-                ],
-                style={"display": "flex", "flexDirection": "column", "gap": "16px"},
-            )
-        case _:
-            return html.Div()
 
+# ── Step visibility ───────────────────────────────────────────────────────────
 
 @callback(
-    Output("wizard-step-content", "children"),
+    Output("wizard-step-1", "style"),
+    Output("wizard-step-2", "style"),
+    Output("wizard-step-3", "style"),
+    Output("wizard-step-4", "style"),
+    Output("wizard-step-5", "style"),
     Output("wizard-back", "style"),
+    Output("wizard-next", "children"),
     Input("wizard-state", "data"),
 )
-def render_step(state: dict[str, object]) -> tuple[object, dict[str, str]]:
+def update_visibility(state: dict) -> tuple:
     step = int(state.get("step", 1))
-    data = dict(state.get("data", {}))
-    back_style = {"display": "none"} if step == 1 else {}
-    return _render_step(step, data), back_style
+    styles = [_SHOW if i == step else _HIDE for i in range(1, 6)]
+    back_style = _HIDE if step == 1 else _SHOW
+    next_label = t("common.finish") if step == 5 else t("common.next")
+    return (*styles, back_style, next_label)
 
+
+# ── Progress dots ─────────────────────────────────────────────────────────────
+
+@callback(
+    *[Output(f"wizard-dot-{i}", "className") for i in range(1, 6)],
+    Input("wizard-state", "data"),
+)
+def update_dots(state: dict) -> tuple:
+    step = int(state.get("step", 1))
+    classes = []
+    for i in range(1, 6):
+        if i < step:
+            classes.append("wizard__step-dot wizard__step-dot--done")
+        elif i == step:
+            classes.append("wizard__step-dot wizard__step-dot--active")
+        else:
+            classes.append("wizard__step-dot")
+    return tuple(classes)
+
+
+# ── Test Facebook connection (step 3) ─────────────────────────────────────────
+
+@callback(
+    Output("onboarding-connection-result", "children"),
+    Output("onboarding-fb-accounts", "data"),
+    Output("onboarding-account-select", "options"),
+    Output("onboarding-account-select", "value"),
+    Input("onboarding-test-btn", "n_clicks"),
+    State("onboarding-app-id", "value"),
+    State("onboarding-app-secret", "value"),
+    State("onboarding-access-token", "value"),
+    prevent_initial_call=True,
+)
+def test_connection(
+    n_clicks: int | None,
+    app_id: str | None,
+    app_secret: str | None,
+    access_token: str | None,
+) -> tuple:
+    if not n_clicks:
+        return html.Span(), [], [], None
+
+    result = OnboardingService().test_facebook_connection(
+        app_id or "", app_secret or "", access_token or ""
+    )
+
+    if result.is_ok():
+        accounts = result.unwrap()
+        options = [{"label": a.get("name", a.get("id", "")), "value": a.get("id", "")}
+                   for a in accounts]
+        first = options[0]["value"] if options else None
+        msg = html.Span(
+            t("onboarding.step3.connection_ok", count=len(accounts)),
+            style={"color": "var(--success)"},
+        )
+        return msg, accounts, options, first
+
+    msg = html.Span(
+        t("onboarding.step3.connection_fail", error=result.unwrap_err()),
+        style={"color": "var(--danger)"},
+    )
+    return msg, [], [], None
+
+
+# ── Navigation ────────────────────────────────────────────────────────────────
 
 @callback(
     Output("wizard-state", "data"),
     Output("wizard-error", "children"),
     Output("onboarding-redirect", "href"),
+    Output("onboarding-password", "value"),
+    Output("onboarding-password-confirm", "value"),
+    Output("onboarding-admin-password", "value"),
     Input("wizard-next", "n_clicks"),
     Input("wizard-back", "n_clicks"),
     State("wizard-state", "data"),
@@ -158,15 +119,17 @@ def render_step(state: dict[str, object]) -> tuple[object, dict[str, str]]:
     State("onboarding-app-id", "value"),
     State("onboarding-app-secret", "value"),
     State("onboarding-access-token", "value"),
+    State("onboarding-admin-password", "value"),
+    State("onboarding-fb-accounts", "data"),
     State("onboarding-account-select", "value"),
     State("onboarding-theme", "value"),
     State("onboarding-range", "value"),
     prevent_initial_call=True,
 )
 def handle_navigation(
-    _next: int | None,
-    _back: int | None,
-    state: dict[str, object],
+    next_clicks: int | None,
+    back_clicks: int | None,
+    state: dict,
     locale: str | None,
     username: str | None,
     password: str | None,
@@ -174,44 +137,56 @@ def handle_navigation(
     app_id: str | None,
     app_secret: str | None,
     access_token: str | None,
+    admin_password: str | None,
+    fb_accounts: list,
     account_id: str | None,
     theme: str | None,
     default_range: str | None,
-) -> tuple[dict[str, object], str, str]:
+) -> tuple:
+    if next_clicks is None and back_clicks is None:
+        return no_update, "", no_update, no_update, no_update, no_update
+
     from dash import ctx
 
     step = int(state.get("step", 1))
-    data = dict(state.get("data", {}))
     triggered = ctx.triggered_id
 
     if triggered == "wizard-back":
-        return {**state, "step": max(1, step - 1)}, "", no_update  # type: ignore[return-value]
+        return {"step": max(1, step - 1)}, "", no_update, no_update, no_update, no_update
 
     svc = OnboardingService()
-    error = ""
+    clear_password = False
+    clear_admin_password = False
 
-    if step == 1 and locale:
-        data["locale"] = locale
-        svc.save_locale(locale)
+    if step == 1:
+        svc.save_locale(locale or "pt-BR")
 
     elif step == 2:
-        result = svc.create_admin(username or "", password or "", password_confirm or "")
+        result = svc.create_admin(
+            username or "admin",
+            password or "",
+            password_confirm or "",
+        )
         if result.is_err():
-            return no_update, str(result.unwrap_err()), no_update  # type: ignore[return-value]
-        data["username"] = username
-        data["password"] = password
+            return no_update, str(result.unwrap_err()), no_update, no_update, no_update, no_update
+        clear_password = True
 
     elif step == 3:
-        result = svc.test_facebook_connection(app_id or "", app_secret or "", access_token or "")
-        if result.is_err():
-            return no_update, t("onboarding.step3.connection_fail", error=result.unwrap_err()), no_update  # type: ignore[return-value]
-        accounts = result.unwrap()
-        data.update({"app_id": app_id, "fb_accounts": accounts})
-        svc.save_facebook_credentials(app_id or "", app_secret or "", access_token or "", password or "")
+        if not fb_accounts:
+            return no_update, t("onboarding.step3.connection_fail", error="Test the connection first."), no_update, no_update, no_update, no_update
+        if not admin_password:
+            return no_update, t("auth.login.error.invalid"), no_update, no_update, no_update, no_update
+        svc.save_facebook_credentials(
+            app_id or "",
+            app_secret or "",
+            access_token or "",
+            admin_password,
+        )
+        clear_admin_password = True
 
-    elif step == 4 and account_id:
-        data["account_id"] = account_id
-        svc.save_default_account(account_id, "America/Sao_Paulo")
+    elif step == 4:
+        if account_id:
+            svc.save_default_account(account_id, "America/Sao_Paulo")
 
     elif step == 5:
         svc.save_preferences(
@@ -221,7 +196,13 @@ def handle_navigation(
             sync_interval=60,
         )
         svc.complete()
-        return no_update, "", "/"  # type: ignore[return-value]
+        return no_update, "", "/", "", "", ""
 
-    new_step = min(5, step + 1)
-    return {"step": new_step, "data": data}, error, no_update  # type: ignore[return-value]
+    return (
+        {"step": min(5, step + 1)},
+        "",
+        no_update,
+        "" if clear_password else no_update,
+        "" if clear_password else no_update,
+        "" if clear_admin_password else no_update,
+    )

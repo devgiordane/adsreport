@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from adsreport.constants import SyncStatus
 from adsreport.services.ads_sync_service import AdsSyncService
@@ -61,7 +59,11 @@ def test_sync_upsert_is_idempotent(session):
     assert run1.status == SyncStatus.SUCCESS
     assert run2.status == SyncStatus.SUCCESS
 
-    from adsreport.repositories.insight_repo import InsightRepository
+    from sqlalchemy import func, select
 
-    insights = InsightRepository().get_by_account_range(account.id, date(2024, 1, 1), date(2024, 1, 1))
-    assert len(insights) == run1.records_upserted
+    from adsreport.db.models.insight import Insight
+
+    insight_count = session.scalar(
+        select(func.count()).select_from(Insight).where(Insight.ad_account_id == account.id)
+    )
+    assert insight_count == run1.records_upserted

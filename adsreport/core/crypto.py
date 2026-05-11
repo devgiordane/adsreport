@@ -22,10 +22,23 @@ def _data_dir() -> Path:
     return Path(os.environ.get("ADSREPORT_DATA_DIR", Path.home() / ".adsreport"))
 
 
+def load_salt() -> bytes:
+    path = _data_dir() / SALT_FILENAME
+    if not path.exists():
+        raise CryptoError(
+            "Encryption salt file is missing. Restore it from backup; existing secrets "
+            "cannot be decrypted with a newly generated salt."
+        )
+    salt = path.read_bytes()
+    if len(salt) != 32:
+        raise CryptoError("Encryption salt file is corrupt; expected 32 bytes.")
+    return salt
+
+
 def load_or_create_salt() -> bytes:
     path = _data_dir() / SALT_FILENAME
     if path.exists():
-        return path.read_bytes()
+        return load_salt()
     salt = os.urandom(32)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(salt)
@@ -50,7 +63,7 @@ def encrypt(plaintext: str, password: str) -> str:
 
 
 def decrypt(ciphertext: str, password: str) -> str:
-    salt = load_or_create_salt()
+    salt = load_salt()
     key = derive_key(password, salt)
     try:
         return Fernet(key).decrypt(ciphertext.encode()).decode()

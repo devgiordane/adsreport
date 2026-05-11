@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from adsreport.core.logging import get_logger
+from adsreport.jobs.cleanup_job import run_cleanup
+from adsreport.jobs.sync_job import run_sync
 
 logger = get_logger(__name__)
 
@@ -25,7 +27,7 @@ class SchedulerService:
 
         _scheduler = BackgroundScheduler(timezone="UTC")
         _scheduler.add_job(
-            _run_sync,
+            run_sync,
             "interval",
             minutes=interval,
             id=JOB_SYNC_ID,
@@ -33,7 +35,7 @@ class SchedulerService:
             max_instances=1,
         )
         _scheduler.add_job(
-            _run_cleanup,
+            run_cleanup,
             "cron",
             hour=3,
             minute=0,
@@ -50,13 +52,11 @@ class SchedulerService:
             _scheduler = None
 
     def trigger_sync_now(self, triggered_by: str = "manual") -> None:
-        from apscheduler.schedulers.background import BackgroundScheduler
-
         global _scheduler
         if _scheduler is None:
             self.start()
         _scheduler.add_job(  # type: ignore[union-attr]
-            _run_sync,
+            run_sync,
             "date",
             kwargs={"triggered_by": triggered_by},
             replace_existing=False,
@@ -72,38 +72,3 @@ class SchedulerService:
             return
         _scheduler.reschedule_job(JOB_SYNC_ID, trigger="interval", minutes=minutes)
         logger.info("scheduler_interval_updated", minutes=minutes)
-
-
-def _run_sync(triggered_by: str = "scheduler") -> None:
-    try:
-        from adsreport.config import get_config
-        from adsreport.constants import SyncTrigger
-        from adsreport.core.time import date_range
-        from adsreport.repositories.ad_account_repo import AdAccountRepository
-        from adsreport.services.ads_sync_service import AdsSyncService
-        from adsreport.services.facebook_client import FacebookClient
-
-        config = get_config()
-        if not config.is_facebook_configured():
-            return
-
-        fb = FacebookClient(
-            config.facebook.app_id,
-            config.facebook.app_secret,
-            config.facebook.access_token,
-            config.facebook.api_version,
-        )
-        service = AdsSyncService(fb)
-        date_from, date_to = date_range(f"last_{config.sync.lookback_days}_days")
-        service.sync_all_accounts(date_from, date_to, triggered_by)
-    except Exception as exc:
-        logger.error("sync_job_error", error=str(exc))
-
-
-def _run_cleanup() -> None:
-    try:
-        from adsreport.jobs.cleanup_job import run_cleanup
-
-        run_cleanup()
-    except Exception as exc:
-        logger.error("cleanup_job_error", error=str(exc))

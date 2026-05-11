@@ -19,11 +19,15 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Generic, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Generic, NoReturn, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 T = TypeVar("T")
 E = TypeVar("E")
 U = TypeVar("U")
+F = TypeVar("F")
 
 
 @dataclass(frozen=True)
@@ -42,10 +46,10 @@ class Ok(Generic[T]):
     def unwrap_err(self) -> NoReturn:
         raise ValueError("Called unwrap_err() on Ok")
 
-    def map(self, fn: Callable[[T], U]) -> "Ok[U]":
+    def map(self, fn: Callable[[T], U]) -> Ok[U]:
         return Ok(fn(self.value))
 
-    def map_err(self, fn: Callable[[object], object]) -> "Ok[T]":
+    def map_err(self, fn: Callable[[E], F]) -> Ok[T]:
         return self
 
 
@@ -67,11 +71,11 @@ class Err(Generic[E]):
     def unwrap_err(self) -> E:
         return self.error
 
-    def map(self, fn: Callable[[object], object]) -> "Err[E]":
+    def map(self, fn: Callable[[T], U]) -> Err[E]:
         return self
 
-    def map_err(self, fn: Callable[[E], U]) -> "Err[U]":  # type: ignore[type-var]
-        return Err(fn(self.error))  # type: ignore[arg-type]
+    def map_err(self, fn: Callable[[E], F]) -> Err[F]:
+        return Err(fn(self.error))
 
 
 Result = Ok[T] | Err[E]

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from adsreport.config import AppConfig, DashboardConfig, FacebookConfig, SyncConfig
 from adsreport.constants import SETTING_DEFAULTS, SettingKey
 from adsreport.core.crypto import decrypt, encrypt
 from adsreport.repositories.settings_repo import SettingsRepository
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 _SECRET_KEYS = {
@@ -19,8 +22,17 @@ _SECRET_KEYS = {
 
 
 class SettingsService:
-    def __init__(self) -> None:
-        self._repo = SettingsRepository()
+    def __init__(self, session: Session | None = None) -> None:
+        self._repo = SettingsRepository(session)
+
+    def close(self) -> None:
+        self._repo.close()
+
+    def __enter__(self) -> SettingsService:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        self.close()
 
     def get(self, key: str, password: str | None = None) -> Any:
         setting = self._repo.get_by_key(key)
@@ -59,17 +71,31 @@ class SettingsService:
         def g(key: str) -> Any:
             return self.get(key, password)
 
+        credentials_locked = password is None and any(
+            self._secret_is_set(key) for key in _SECRET_KEYS
+        )
+
+        if password is None:
+            facebook_access_token = ""
+            facebook_app_id = ""
+            facebook_app_secret = ""
+        else:
+            facebook_access_token = g(SettingKey.FB_ACCESS_TOKEN) or ""
+            facebook_app_id = g(SettingKey.FB_APP_ID) or ""
+            facebook_app_secret = g(SettingKey.FB_APP_SECRET) or ""
+
         return AppConfig(
             locale=g(SettingKey.LOCALE) or "pt-BR",
             timezone=g(SettingKey.TIMEZONE) or "America/Sao_Paulo",
             onboarding_completed=bool(g(SettingKey.ONBOARDING_COMPLETED)),
             theme=g(SettingKey.THEME) or "dark",
             facebook=FacebookConfig(
-                access_token=g(SettingKey.FB_ACCESS_TOKEN) or "" if password else "",
-                app_id=g(SettingKey.FB_APP_ID) or "" if password else "",
-                app_secret=g(SettingKey.FB_APP_SECRET) or "" if password else "",
+                access_token=facebook_access_token,
+                app_id=facebook_app_id,
+                app_secret=facebook_app_secret,
                 api_version=g(SettingKey.FB_API_VERSION) or "v21.0",
                 default_account_id=g(SettingKey.FB_DEFAULT_ACCOUNT_ID) or "",
+                credentials_locked=credentials_locked,
             ),
             sync=SyncConfig(
                 interval_minutes=int(g(SettingKey.SYNC_INTERVAL_MINUTES) or 60),
@@ -84,6 +110,10 @@ class SettingsService:
 
     def complete_onboarding(self) -> None:
         self.set(SettingKey.ONBOARDING_COMPLETED, True)
+
+    def _secret_is_set(self, key: str) -> bool:
+        setting = self._repo.get_by_key(key)
+        return bool(setting and setting.is_secret and setting.value_encrypted)
 
     def _coerce(self, value: str | None, value_type: str) -> Any:
         if value is None:

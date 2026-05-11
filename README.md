@@ -154,10 +154,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide. Short version:
 ```bash
 git clone https://github.com/adsreport/adsreport
 cd adsreport
-pip install hatch
-hatch run dev     # dev server on :8050
-hatch run check   # lint + types + tests
+poetry install
+poetry run adsreport start   # dev server on :8050
+poetry run pytest tests/unit # test suite
 ```
+
+Full setup instructions (including Windows-specific steps) at [docs/installation/source.md](docs/installation/source.md).
 
 Browse [`good-first-issue`](https://github.com/adsreport/adsreport/labels/good-first-issue) for approachable tasks. Adding a new language is particularly welcome — see [docs/i18n-contributing.md](docs/i18n-contributing.md), it takes about 30 minutes.
 

@@ -5,7 +5,7 @@ All Facebook API calls go through this class — never directly from callbacks o
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -109,10 +109,21 @@ class FacebookClient:
         except Exception as exc:
             self._handle_exc(exc)
 
-    def _handle_exc(self, exc: Exception) -> None:
-        msg = str(exc)
-        if "rate limit" in msg.lower() or "17" in msg:
-            raise FacebookRateLimitError(msg) from exc
-        if "190" in msg or "token" in msg.lower():
-            raise FacebookError(f"Access token error: {msg}", status_code=190) from exc
-        raise FacebookError(msg) from exc
+    def _handle_exc(self, exc: Exception) -> NoReturn:
+        from facebook_business.exceptions import FacebookRequestError
+
+        if isinstance(exc, FacebookRequestError):
+            code = exc.api_error_code()
+            status = exc.http_status()
+            message = exc.api_error_message() or exc.get_message()
+
+            if status == 429 or code in {4, 17, 32, 613} or exc.api_transient_error():
+                raise FacebookRateLimitError(message, status_code=status) from exc
+            if code == 190:
+                raise FacebookError(
+                    f"Access token error: {message}",
+                    status_code=190,
+                ) from exc
+            raise FacebookError(message, status_code=status) from exc
+
+        raise FacebookError(str(exc)) from exc

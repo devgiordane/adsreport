@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from adsreport.constants import SettingKey
-from adsreport.core.errors import OnboardingError, ValidationError
+from adsreport.core.errors import ValidationError
 from adsreport.core.result import Err, Ok, Result
 from adsreport.services.auth_service import AuthService
 from adsreport.services.facebook_client import FacebookClient
@@ -46,6 +46,10 @@ class OnboardingService:
         self._settings.set(SettingKey.FB_APP_SECRET, app_secret, password)
         self._settings.set(SettingKey.FB_ACCESS_TOKEN, access_token, password)
 
+        from adsreport.services.config_loader import reload_config
+
+        reload_config(password=password)
+
     def save_default_account(self, fb_account_id: str, timezone: str) -> None:
         self._settings.set(SettingKey.FB_DEFAULT_ACCOUNT_ID, fb_account_id)
         self._settings.set(SettingKey.TIMEZONE, timezone)
@@ -75,14 +79,20 @@ class OnboardingService:
     def complete(self) -> None:
         self._settings.complete_onboarding()
 
-        from adsreport.config import reload_config
+        from adsreport.config import get_config, set_config
+        from adsreport.services.config_loader import reload_config
 
+        unlocked_facebook = get_config().facebook
         reload_config()
+        if not unlocked_facebook.credentials_locked:
+            config = get_config()
+            config.facebook = unlocked_facebook
+            config.onboarding_completed = True
+            set_config(config)
         self._trigger_initial_sync()
 
     def _trigger_initial_sync(self) -> None:
         from adsreport.constants import SyncTrigger
-        from adsreport.core.time import date_range
         from adsreport.services.scheduler_service import SchedulerService
 
         scheduler = SchedulerService()

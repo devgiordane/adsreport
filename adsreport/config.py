@@ -24,6 +24,7 @@ class FacebookConfig:
     app_secret: str = ""
     api_version: str = FACEBOOK_API_DEFAULT_VERSION
     default_account_id: str = ""
+    credentials_locked: bool = False
 
 
 @dataclass
@@ -54,7 +55,8 @@ class AppConfig:
 
     def is_facebook_configured(self) -> bool:
         return bool(
-            self.facebook.access_token
+            not self.facebook.credentials_locked
+            and self.facebook.access_token
             and self.facebook.app_id
             and self.facebook.app_secret
         )
@@ -90,12 +92,3 @@ def get_config() -> AppConfig:
 def set_config(config: AppConfig) -> None:
     global _config
     _config = config
-
-
-def reload_config() -> AppConfig:
-    """Re-read settings from DB and update the global config."""
-    from adsreport.services.settings_service import SettingsService
-
-    config = SettingsService().load_config()
-    set_config(config)
-    return config

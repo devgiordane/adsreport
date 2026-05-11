@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dash import Input, Output, State, callback, dcc, html, no_update
+from dash import Input, Output, callback, dcc, html
 
 from adsreport.i18n import t
 from adsreport.services.settings_service import SettingsService
@@ -13,22 +13,22 @@ from adsreport.services.settings_service import SettingsService
     Input("settings-tabs", "value"),
 )
 def render_tab(tab: str) -> object:
-    svc = SettingsService()
-    match tab:
-        case "general":
-            return _general_tab(svc)
-        case "facebook":
-            return _facebook_tab(svc)
-        case "sync":
-            return _sync_tab(svc)
-        case "appearance":
-            return _appearance_tab(svc)
-        case "language":
-            return _language_tab(svc)
-        case "about":
-            return _about_tab()
-        case _:
-            return html.Div()
+    with SettingsService() as svc:
+        match tab:
+            case "general":
+                return _general_tab(svc)
+            case "facebook":
+                return _facebook_tab(svc)
+            case "sync":
+                return _sync_tab(svc)
+            case "appearance":
+                return _appearance_tab(svc)
+            case "language":
+                return _language_tab(svc)
+            case "about":
+                return _about_tab()
+            case _:
+                return html.Div()
 
 
 def _general_tab(svc: SettingsService) -> object:
