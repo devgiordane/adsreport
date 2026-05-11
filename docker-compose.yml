@@ -1,0 +1,22 @@
+services:
+  adsreport:
+    image: ghcr.io/adsreport/adsreport:latest
+    build: .
+    container_name: adsreport
+    restart: unless-stopped
+    ports:
+      - "8050:8050"
+    volumes:
+      - adsreport-data:/data
+    environment:
+      - ADSREPORT_DATA_DIR=/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8050/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  adsreport-data:
+    driver: local

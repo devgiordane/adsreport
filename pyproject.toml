@@ -1,0 +1,104 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "adsreport"
+version = "0.1.0"
+description = "Self-hosted Facebook Ads dashboard. Your data, your server, no SaaS bill."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+keywords = ["facebook-ads", "dashboard", "marketing", "analytics", "self-hosted"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Office/Business :: Financial",
+]
+dependencies = [
+    "dash>=2.17",
+    "plotly>=5.22",
+    "flask-login>=0.6",
+    "flask-limiter[sqlite]>=3.7",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "facebook-business>=20.0",
+    "cryptography>=42.0",
+    "apscheduler>=3.10",
+    "structlog>=24.1",
+    "werkzeug>=3.0",
+    "tenacity>=8.2",
+    "click>=8.1",
+    "gunicorn>=22.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "factory-boy>=3.3",
+    "vcrpy>=6.0",
+    "pytest-playwright>=0.4",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "mutmut>=2.4",
+    "hatch>=1.12",
+]
+
+[project.urls]
+Homepage = "https://github.com/adsreport/adsreport"
+Documentation = "https://github.com/adsreport/adsreport/tree/main/docs"
+Repository = "https://github.com/adsreport/adsreport"
+Issues = "https://github.com/adsreport/adsreport/issues"
+Changelog = "https://github.com/adsreport/adsreport/blob/main/CHANGELOG.md"
+
+[project.scripts]
+adsreport = "adsreport.cli:cli"
+
+[tool.hatch.version]
+path = "adsreport/__init__.py"
+
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "factory-boy>=3.3",
+    "vcrpy>=6.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[tool.hatch.envs.default.scripts]
+dev = "python -m adsreport --port 8050 --debug"
+test = "pytest {args:tests}"
+lint = "ruff check adsreport tests"
+fmt = "ruff format adsreport tests"
+typecheck = "mypy adsreport"
+check = ["lint", "typecheck", "test"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "TCH"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["adsreport"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+plugins = ["sqlalchemy.ext.mypy.plugin"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]

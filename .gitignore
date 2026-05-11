@@ -1,0 +1,97 @@
+# Claude Code local config (hooks, permissions — not shared)
+.claude/settings.local.json
+.claude/settings.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Hatch
+.hatch/
+
+# Testing
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Playwright
+test-results/
+playwright-report/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ruff
+.ruff_cache/
+
+# Application data (never commit real data)
+*.db
+*.db-shm
+*.db-wal
+.adsreport/
+data/
+
+# VCR cassettes with real API responses (commit only mock cassettes)
+tests/cassettes/*.yaml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Secrets (never, ever)
+*.pem
+*.key
+*.cert
+.env.*
+secrets/
