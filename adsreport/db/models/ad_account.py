@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional
+from datetime import datetime  # noqa: TC003
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from adsreport.db.base import Base, TimestampMixin, _new_uuid
+
+if TYPE_CHECKING:
+    from adsreport.db.models.campaign import Campaign
+    from adsreport.db.models.insight import Insight
 
 
 class AdAccount(Base, TimestampMixin):
@@ -19,7 +23,8 @@ class AdAccount(Base, TimestampMixin):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="America/Sao_Paulo")
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    sync_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    campaigns: Mapped[list["Campaign"]] = relationship(back_populates="ad_account", lazy="dynamic")  # type: ignore[name-defined]  # noqa: F821
-    insights: Mapped[list["Insight"]] = relationship(back_populates="ad_account", lazy="dynamic")  # type: ignore[name-defined]  # noqa: F821
+    campaigns: Mapped[list[Campaign]] = relationship(back_populates="ad_account", lazy="dynamic")
+    insights: Mapped[list[Insight]] = relationship(back_populates="ad_account", lazy="dynamic")

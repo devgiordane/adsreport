@@ -1,7 +1,12 @@
-"""Fernet encryption with PBKDF2-HMAC-SHA256 key derivation.
+"""Fernet encryption for app secrets.
 
-The salt is stored in ~/.adsreport/.salt (separate from the DB so that
-rotating the password only requires re-deriving the key, not re-generating salt).
+Two encryption modes:
+- app_key  (no password) — used for Facebook credentials and all service secrets.
+  Key is derived from the machine salt alone. Appropriate for a self-hosted tool
+  where filesystem access already implies full access.
+- password key           — kept for future use / admin password-change flow.
+
+The salt lives in ~/.adsreport/.salt.
 """
 
 from __future__ import annotations
@@ -56,6 +61,33 @@ def derive_key(password: str, salt: bytes) -> bytes:
     return base64.urlsafe_b64encode(kdf.derive(password.encode()))
 
 
+def _app_key() -> bytes:
+    """Derive a stable encryption key from the machine salt (no password needed)."""
+    salt = load_or_create_salt()
+    # Use a fixed context string so the key is distinct from password-derived keys
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=PBKDF2_ITERATIONS,
+    )
+    return base64.urlsafe_b64encode(kdf.derive(b"adsreport-app-key"))
+
+
+def encrypt_secret(plaintext: str) -> str:
+    """Encrypt using the machine app key — no password required."""
+    return Fernet(_app_key()).encrypt(plaintext.encode()).decode()
+
+
+def decrypt_secret(ciphertext: str) -> str:
+    """Decrypt using the machine app key — no password required."""
+    try:
+        return Fernet(_app_key()).decrypt(ciphertext.encode()).decode()
+    except InvalidToken as exc:
+        raise CryptoError("Decryption failed — salt file may have changed.") from exc
+
+
+# Kept for login / password-change flows
 def encrypt(plaintext: str, password: str) -> str:
     salt = load_or_create_salt()
     key = derive_key(password, salt)
@@ -71,14 +103,5 @@ def decrypt(ciphertext: str, password: str) -> str:
         raise CryptoError("Decryption failed — wrong password or corrupt data.") from exc
 
 
-def re_encrypt_all(old_password: str, new_password: str) -> None:
-    """Re-encrypt every secret in app_settings after a password change."""
-    from adsreport.repositories.settings_repo import SettingsRepository
-
-    repo = SettingsRepository()
-    secrets = repo.get_all_secrets()
-    for setting in secrets:
-        if setting.value_encrypted:
-            plaintext = decrypt(setting.value_encrypted, old_password)
-            setting.value_encrypted = encrypt(plaintext, new_password)
-    repo.bulk_save(secrets)
+def re_encrypt_all(*_: str) -> None:
+    """No-op — secrets now use app key, not user password. Kept for API compatibility."""

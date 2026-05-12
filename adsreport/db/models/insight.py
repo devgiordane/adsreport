@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import Optional
+from datetime import date, datetime  # noqa: TC003
 
 from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -30,12 +29,19 @@ class Insight(Base):
     leads: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     purchase_value_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     roas: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    raw_actions_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    raw_actions_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    ad_account: Mapped["AdAccount"] = relationship(back_populates="insights")  # type: ignore[name-defined]  # noqa: F821
+    ad_account: Mapped["AdAccount"] = relationship(back_populates="insights")  # type: ignore[name-defined]  # noqa: F821,UP037
 
     __table_args__ = (
-        Index("ix_insights_level_entity_date", "level", "entity_id", "date", unique=True),
+        Index(
+            "ix_insights_account_level_entity_date",
+            "ad_account_id",
+            "level",
+            "entity_id",
+            "date",
+            unique=True,
+        ),
         Index("ix_insights_account_date", "ad_account_id", "date"),
     )

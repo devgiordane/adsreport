@@ -108,7 +108,6 @@ def test_connection(
     Output("onboarding-redirect", "href"),
     Output("onboarding-password", "value"),
     Output("onboarding-password-confirm", "value"),
-    Output("onboarding-admin-password", "value"),
     Input("wizard-next", "n_clicks"),
     Input("wizard-back", "n_clicks"),
     State("wizard-state", "data"),
@@ -119,10 +118,8 @@ def test_connection(
     State("onboarding-app-id", "value"),
     State("onboarding-app-secret", "value"),
     State("onboarding-access-token", "value"),
-    State("onboarding-admin-password", "value"),
     State("onboarding-fb-accounts", "data"),
     State("onboarding-account-select", "value"),
-    State("onboarding-theme", "value"),
     State("onboarding-range", "value"),
     prevent_initial_call=True,
 )
@@ -137,14 +134,12 @@ def handle_navigation(
     app_id: str | None,
     app_secret: str | None,
     access_token: str | None,
-    admin_password: str | None,
     fb_accounts: list,
     account_id: str | None,
-    theme: str | None,
     default_range: str | None,
 ) -> tuple:
     if next_clicks is None and back_clicks is None:
-        return no_update, "", no_update, no_update, no_update, no_update
+        return no_update, "", no_update, no_update, no_update  # type: ignore[return-value]
 
     from dash import ctx
 
@@ -152,57 +147,39 @@ def handle_navigation(
     triggered = ctx.triggered_id
 
     if triggered == "wizard-back":
-        return {"step": max(1, step - 1)}, "", no_update, no_update, no_update, no_update
+        return {"step": max(1, step - 1)}, "", no_update, no_update, no_update  # type: ignore[return-value]
 
     svc = OnboardingService()
-    clear_password = False
-    clear_admin_password = False
 
     if step == 1:
         svc.save_locale(locale or "pt-BR")
 
     elif step == 2:
-        result = svc.create_admin(
-            username or "admin",
-            password or "",
-            password_confirm or "",
-        )
+        result = svc.create_admin(username or "admin", password or "", password_confirm or "")
         if result.is_err():
-            return no_update, str(result.unwrap_err()), no_update, no_update, no_update, no_update
-        clear_password = True
+            return no_update, str(result.unwrap_err()), no_update, no_update, no_update  # type: ignore[return-value]
+        return {"step": 3}, "", no_update, "", ""  # clear passwords on advance  # type: ignore[return-value]
 
     elif step == 3:
         if not fb_accounts:
-            return no_update, t("onboarding.step3.connection_fail", error="Test the connection first."), no_update, no_update, no_update, no_update
-        if not admin_password:
-            return no_update, t("auth.login.error.invalid"), no_update, no_update, no_update, no_update
-        svc.save_facebook_credentials(
-            app_id or "",
-            app_secret or "",
-            access_token or "",
-            admin_password,
-        )
-        clear_admin_password = True
+            return no_update, t("onboarding.step3.connection_fail", error="Teste a conexão primeiro."), no_update, no_update, no_update  # type: ignore[return-value]
+        svc.save_facebook_credentials(app_id or "", app_secret or "", access_token or "")
 
     elif step == 4:
         if account_id:
-            svc.save_default_account(account_id, "America/Sao_Paulo")
+            svc.save_ad_accounts(
+                fb_accounts,
+                default_fb_account_id=account_id,
+                fallback_timezone="America/Sao_Paulo",
+            )
 
     elif step == 5:
         svc.save_preferences(
             kpis=["impressions", "clicks", "ctr", "cpc", "cpm", "spend", "leads", "conversions", "roas"],
             default_range=default_range or "last_7_days",
-            theme=theme or "dark",
             sync_interval=60,
         )
         svc.complete()
-        return no_update, "", "/", "", "", ""
+        return no_update, "", "/", no_update, no_update  # type: ignore[return-value]
 
-    return (
-        {"step": min(5, step + 1)},
-        "",
-        no_update,
-        "" if clear_password else no_update,
-        "" if clear_password else no_update,
-        "" if clear_admin_password else no_update,
-    )
+    return {"step": min(5, step + 1)}, "", no_update, no_update, no_update  # type: ignore[return-value]

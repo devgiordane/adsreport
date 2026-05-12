@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from adsreport.repositories.adset_repo import AdSetRepository
+from adsreport.repositories.campaign_repo import CampaignRepository
 from adsreport.repositories.insight_repo import InsightRepository
 
 if TYPE_CHECKING:
@@ -42,6 +44,16 @@ class KPISummary:
         return self.cpm_cents / 100
 
     @property
+    def cost_per_lead_cents(self) -> int:
+        if not self.leads:
+            return 0
+        return round(self.spend_cents / self.leads)
+
+    @property
+    def has_roas(self) -> bool:
+        return self.purchase_value_cents > 0 and self.spend_cents > 0
+
+    @property
     def purchase_value(self) -> float:
         return self.purchase_value_cents / 100
 
@@ -67,6 +79,12 @@ class CampaignRow:
     roas: float
     leads: int
 
+    @property
+    def cost_per_lead_cents(self) -> int:
+        if not self.leads:
+            return 0
+        return round(self.spend_cents / self.leads)
+
 
 @dataclass
 class ReportData:
@@ -74,12 +92,15 @@ class ReportData:
     prev_summary: KPISummary = field(default_factory=KPISummary)
     time_series: list[TimeSeriesPoint] = field(default_factory=list)
     top_campaigns: list[CampaignRow] = field(default_factory=list)
+    top_adsets: list[CampaignRow] = field(default_factory=list)
     has_data: bool = False
 
 
 class ReportService:
     def __init__(self, session: Session | None = None) -> None:
         self._insights = InsightRepository(session)
+        self._campaigns = CampaignRepository(self._insights.session)
+        self._adsets = AdSetRepository(self._insights.session)
 
     def close(self) -> None:
         self._insights.close()
@@ -95,8 +116,35 @@ class ReportService:
         ad_account_id: str,
         date_from: date,
         date_to: date,
+        prev_date_from: date | None = None,
+        prev_date_to: date | None = None,
+        campaign_ids: list[str] | None = None,
     ) -> ReportData:
-        insights = self._insights.get_by_account_range(ad_account_id, date_from, date_to, level="campaign")
+        return self.get_dashboard_data_for_accounts(
+            [ad_account_id],
+            date_from,
+            date_to,
+            prev_date_from,
+            prev_date_to,
+            campaign_ids,
+        )
+
+    def get_dashboard_data_for_accounts(
+        self,
+        ad_account_ids: list[str],
+        date_from: date,
+        date_to: date,
+        prev_date_from: date | None = None,
+        prev_date_to: date | None = None,
+        campaign_ids: list[str] | None = None,
+    ) -> ReportData:
+        insights = self._insights.get_by_accounts_range(
+            ad_account_ids,
+            date_from,
+            date_to,
+            level="campaign",
+            entity_ids=campaign_ids,
+        )
 
         if not insights:
             return ReportData(has_data=False)
@@ -104,9 +152,26 @@ class ReportService:
         summary = self._aggregate(insights)
         time_series = self._build_time_series(insights)
         top_campaigns = self._top_campaigns(insights)
+        adset_insights = self._insights.get_by_accounts_range(
+            ad_account_ids,
+            date_from,
+            date_to,
+            level="adset",
+        )
+        top_adsets = self._top_adsets(adset_insights)
 
-        prev_from, prev_to = self._prev_period(date_from, date_to)
-        prev_insights = self._insights.get_by_account_range(ad_account_id, prev_from, prev_to, level="campaign")
+        prev_from, prev_to = (
+            (prev_date_from, prev_date_to)
+            if prev_date_from is not None and prev_date_to is not None
+            else self._prev_period(date_from, date_to)
+        )
+        prev_insights = self._insights.get_by_accounts_range(
+            ad_account_ids,
+            prev_from,
+            prev_to,
+            level="campaign",
+            entity_ids=campaign_ids,
+        )
         prev_summary = self._aggregate(prev_insights)
 
         return ReportData(
@@ -114,6 +179,7 @@ class ReportService:
             prev_summary=prev_summary,
             time_series=time_series,
             top_campaigns=top_campaigns,
+            top_adsets=top_adsets,
             has_data=True,
         )
 
@@ -151,11 +217,33 @@ class ReportService:
         return sorted(by_date.values(), key=lambda x: x.date)
 
     def _top_campaigns(self, insights: list[Insight], limit: int = 10) -> list[CampaignRow]:
+        names = self._campaigns.get_names_by_fb_ids(list({i.entity_id for i in insights}))
+        return self._top_entities(insights, names, limit)
+
+    def _top_adsets(self, insights: list[Insight], limit: int = 10) -> list[CampaignRow]:
+        names = self._adsets.get_names_by_fb_ids(list({i.entity_id for i in insights}))
+        return self._top_entities(insights, names, limit)
+
+    def _top_entities(
+        self,
+        insights: list[Insight],
+        names: dict[str, str],
+        limit: int = 10,
+    ) -> list[CampaignRow]:
         by_campaign: dict[str, CampaignRow] = {}
         for i in insights:
             eid = i.entity_id
             if eid not in by_campaign:
-                by_campaign[eid] = CampaignRow(entity_id=eid, name=eid, impressions=0, clicks=0, spend_cents=0, ctr=0.0, roas=0.0, leads=0)
+                by_campaign[eid] = CampaignRow(
+                    entity_id=eid,
+                    name=names.get(eid, eid),
+                    impressions=0,
+                    clicks=0,
+                    spend_cents=0,
+                    ctr=0.0,
+                    roas=0.0,
+                    leads=0,
+                )
             r = by_campaign[eid]
             r.impressions += i.impressions
             r.clicks += i.clicks

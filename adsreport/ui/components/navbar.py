@@ -21,4 +21,5 @@ def navbar(page_title: str = "", sync_status: str | None = None) -> html.Div:
             "paddingBottom": "16px",
             "borderBottom": "1px solid var(--border)",
         },
+        className="navbar",
     )

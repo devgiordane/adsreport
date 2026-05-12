@@ -5,10 +5,15 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 
 from adsreport import __version__
+from adsreport.core.time import month_range
+
+if TYPE_CHECKING:
+    from datetime import date
 
 DEFAULT_DATA_DIR = Path.home() / ".adsreport"
 DEFAULT_PORT = 8050
@@ -21,6 +26,14 @@ def _resolve_data_dir(data_dir: str | None) -> Path:
     if env:
         return Path(env)
     return DEFAULT_DATA_DIR
+
+
+def _month_range(month: str) -> tuple[date, date]:
+    try:
+        year, month_number = [int(part) for part in month.split("-", maxsplit=1)]
+        return month_range(year, month_number)
+    except (ValueError, TypeError) as exc:
+        raise click.BadParameter("Use o formato YYYY-MM, por exemplo 2026-05.") from exc
 
 
 @click.group()
@@ -44,6 +57,22 @@ def start(port: int, data_dir: str | None, debug: bool) -> None:
     app = create_app()
     click.echo(f"AdsReport {__version__} — http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=debug)
+
+
+@cli.command()
+@click.option("--port", default=DEFAULT_PORT, show_default=True, help="HTTP port to listen on.")
+@click.option("--data-dir", default=None, help="Directory for the SQLite database and salt file.")
+def dev(port: int, data_dir: str | None) -> None:
+    """Start the AdsReport web server in development mode (debug enabled)."""
+    resolved = _resolve_data_dir(data_dir)
+    resolved.mkdir(parents=True, exist_ok=True)
+    os.environ["ADSREPORT_DATA_DIR"] = str(resolved)
+
+    from adsreport.app import create_app
+
+    app = create_app()
+    click.echo(f"AdsReport {__version__} (dev mode) — http://localhost:{port}")
+    app.run(host="0.0.0.0", port=port, debug=True)
 
 
 @cli.command()
@@ -100,6 +129,47 @@ def reset_password(data_dir: str | None) -> None:
 
     AuthService().reset_admin_password(new_pw)
     click.echo("Password updated. All encrypted secrets have been re-encrypted.")
+
+
+@cli.command("export-leads-report")
+@click.option("--account-id", required=True, help="Facebook ad account ID, with or without act_.")
+@click.option("--month", required=True, help="Reporting month in YYYY-MM format.")
+@click.option("--breakdown", default="region", show_default=True, help="Insights breakdown, e.g. region.")
+@click.option("--output", type=click.Path(path_type=Path), required=True, help="CSV output path.")
+@click.option("--data-dir", default=None, help="Directory for the SQLite database and salt file.")
+def export_leads_report(
+    account_id: str,
+    month: str,
+    breakdown: str,
+    output: Path,
+    data_dir: str | None,
+) -> None:
+    """Export a monthly lead report by campaign, ad set, ad, and geographic breakdown."""
+    resolved = _resolve_data_dir(data_dir)
+    os.environ["ADSREPORT_DATA_DIR"] = str(resolved)
+
+    from adsreport.config import get_config
+    from adsreport.services.config_loader import reload_config
+    from adsreport.services.facebook_client import FacebookClient
+    from adsreport.services.leads_report_service import LeadsReportService
+
+    date_from, date_to = _month_range(month)
+    reload_config()
+    config = get_config()
+    if not config.is_facebook_configured():
+        click.echo("Facebook credentials are not configured.", err=True)
+        sys.exit(1)
+
+    fb = FacebookClient(
+        config.facebook.app_id,
+        config.facebook.app_secret,
+        config.facebook.access_token,
+        config.facebook.api_version,
+    )
+    service = LeadsReportService(fb)
+    rows = service.fetch_monthly(account_id, str(date_from), str(date_to), breakdown=breakdown)
+    service.export_csv(rows, output, breakdown_label="Região" if breakdown == "region" else breakdown)
+    click.echo(f"Exported {len(rows)} rows to {output}")
 
 
 @cli.command("version")

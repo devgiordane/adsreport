@@ -17,6 +17,14 @@ class CampaignRepository(BaseRepository[Campaign]):
         stmt = select(Campaign).where(Campaign.ad_account_id == ad_account_id)
         return list(self.session.scalars(stmt).all())
 
+    def get_names_by_fb_ids(self, fb_campaign_ids: list[str]) -> dict[str, str]:
+        if not fb_campaign_ids:
+            return {}
+        stmt = select(Campaign.fb_campaign_id, Campaign.name).where(
+            Campaign.fb_campaign_id.in_(fb_campaign_ids)
+        )
+        return {fb_id: name for fb_id, name in self.session.execute(stmt)}
+
     def upsert_from_fb(self, fb_data: dict[str, object], ad_account_id: str) -> Campaign:
         fb_id = str(fb_data["id"])
         campaign = self.get_by_fb_id(fb_id)
@@ -24,6 +32,8 @@ class CampaignRepository(BaseRepository[Campaign]):
             campaign = Campaign(fb_campaign_id=fb_id, ad_account_id=ad_account_id)
         campaign.name = str(fb_data.get("name", ""))
         campaign.objective = str(fb_data.get("objective", ""))
-        campaign.status = str(fb_data.get("status", "ACTIVE"))
-        campaign.effective_status = str(fb_data.get("effective_status", "ACTIVE"))
+        campaign.status = str(fb_data.get("status", campaign.status or "ACTIVE"))
+        campaign.effective_status = str(
+            fb_data.get("effective_status", campaign.effective_status or "ACTIVE")
+        )
         return self.save(campaign)

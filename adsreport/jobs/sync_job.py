@@ -12,8 +12,17 @@ from adsreport.services.facebook_client import FacebookClient
 logger = get_logger(__name__)
 
 
-def run_sync(triggered_by: str = "scheduler") -> None:
-    """Sync all active ad accounts for the configured lookback window."""
+def run_sync(triggered_by: str = "scheduler", account_ids: list[str] | None = None) -> None:
+    """Sync selected ad accounts, or all sync-enabled accounts, for the configured lookback."""
+    run_sync_range(triggered_by=triggered_by, account_ids=account_ids)
+
+
+def run_sync_range(
+    triggered_by: str = "scheduler",
+    account_ids: list[str] | None = None,
+    date_preset: str | None = None,
+) -> None:
+    """Sync selected accounts for either a preset window or the configured lookback."""
     config = get_config()
     if config.facebook.credentials_locked:
         logger.warning("sync_skipped", reason="facebook_credentials_locked")
@@ -29,11 +38,18 @@ def run_sync(triggered_by: str = "scheduler") -> None:
         config.facebook.api_version,
     )
 
-    date_from, date_to = date_range(f"last_{config.sync.lookback_days}_days")
+    preset = date_preset or f"last_{config.sync.lookback_days}_days"
+    date_from, date_to = date_range(preset)
     with session_scope() as session:
         service = AdsSyncService(fb, session=session)
-        runs = service.sync_all_accounts(date_from, date_to, triggered_by)
+        if account_ids:
+            runs = [
+                service.sync_account(account_id, date_from, date_to, triggered_by)
+                for account_id in account_ids
+            ]
+        else:
+            runs = service.sync_all_accounts(date_from, date_to, triggered_by)
 
-    for run in runs:
-        logger.info("sync_run_complete", account_id=run.ad_account_id, status=run.status,
-                    upserted=run.records_upserted)
+        for run in runs:
+            logger.info("sync_run_complete", account_id=run.ad_account_id, status=run.status,
+                        upserted=run.records_upserted)

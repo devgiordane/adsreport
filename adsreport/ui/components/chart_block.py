@@ -25,7 +25,7 @@ def chart_block(
     )
 
 
-def empty_figure(theme: str = "dark") -> go.Figure:
+def empty_figure(theme: str = "light") -> go.Figure:
     from adsreport.ui.theme import plotly_template
 
     fig = go.Figure()

@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import factory
 from werkzeug.security import generate_password_hash
 
 from adsreport.db.models.ad_account import AdAccount
+from adsreport.db.models.adset import AdSet
 from adsreport.db.models.campaign import Campaign
 from adsreport.db.models.insight import Insight
-from adsreport.db.models.sync_run import SyncRun
 from adsreport.db.models.user import User
 
 
@@ -28,8 +28,8 @@ class UserFactory(factory.Factory):
     password_hash = factory.LazyFunction(lambda: generate_password_hash("testpassword123"))
     is_active = True
     preferred_locale = "pt-BR"
-    created_at = factory.LazyFunction(lambda: datetime.now(tz=timezone.utc))
-    updated_at = factory.LazyFunction(lambda: datetime.now(tz=timezone.utc))
+    created_at = factory.LazyFunction(lambda: datetime.now(tz=UTC))
+    updated_at = factory.LazyFunction(lambda: datetime.now(tz=UTC))
 
 
 class AdAccountFactory(factory.Factory):
@@ -43,8 +43,9 @@ class AdAccountFactory(factory.Factory):
     timezone = "America/Sao_Paulo"
     status = "active"
     is_default = False
-    created_at = factory.LazyFunction(lambda: datetime.now(tz=timezone.utc))
-    updated_at = factory.LazyFunction(lambda: datetime.now(tz=timezone.utc))
+    sync_enabled = False
+    created_at = factory.LazyFunction(lambda: datetime.now(tz=UTC))
+    updated_at = factory.LazyFunction(lambda: datetime.now(tz=UTC))
 
 
 class CampaignFactory(factory.Factory):
@@ -58,8 +59,23 @@ class CampaignFactory(factory.Factory):
     objective = "OUTCOME_LEADS"
     status = "ACTIVE"
     effective_status = "ACTIVE"
-    created_at = factory.LazyFunction(lambda: datetime.now(tz=timezone.utc))
-    updated_at = factory.LazyFunction(lambda: datetime.now(tz=timezone.utc))
+    created_at = factory.LazyFunction(lambda: datetime.now(tz=UTC))
+    updated_at = factory.LazyFunction(lambda: datetime.now(tz=UTC))
+
+
+class AdSetFactory(factory.Factory):
+    class Meta:
+        model = AdSet
+
+    id = factory.LazyFunction(_uuid)
+    fb_adset_id = factory.Sequence(lambda n: f"adset_{n:012d}")
+    campaign_id = factory.LazyFunction(_uuid)
+    ad_account_id = factory.LazyFunction(_uuid)
+    name = factory.Sequence(lambda n: f"Test Ad Set {n}")
+    status = "ACTIVE"
+    effective_status = "ACTIVE"
+    created_at = factory.LazyFunction(lambda: datetime.now(tz=UTC))
+    updated_at = factory.LazyFunction(lambda: datetime.now(tz=UTC))
 
 
 class InsightFactory(factory.Factory):
@@ -83,4 +99,4 @@ class InsightFactory(factory.Factory):
     leads = factory.Faker("random_int", min=0, max=50)
     purchase_value_cents = factory.Faker("random_int", min=0, max=1000000)
     roas = factory.Faker("pyfloat", min_value=0.0, max_value=10.0)
-    synced_at = factory.LazyFunction(lambda: datetime.now(tz=timezone.utc))
+    synced_at = factory.LazyFunction(lambda: datetime.now(tz=UTC))

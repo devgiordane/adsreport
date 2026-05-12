@@ -81,11 +81,6 @@ def layout() -> object:
                             dcc.Input(id="onboarding-access-token", type="password",
                                       className="form-input", style={"width": "100%"}),
                         ], className="form-group"),
-                        html.Div([
-                            html.Label(t("settings.facebook.current_password"), className="form-label"),
-                            dcc.Input(id="onboarding-admin-password", type="password",
-                                      className="form-input", style={"width": "100%"}),
-                        ], className="form-group"),
                         html.Button(t("onboarding.step3.test_connection"),
                                     id="onboarding-test-btn", className="btn btn--secondary"),
                         html.Div(id="onboarding-connection-result"),
@@ -100,22 +95,10 @@ def layout() -> object:
                     dcc.RadioItems(id="onboarding-account-select", options=[], value=None),
                 ]),
 
-                # ── Step 5: Preferences ───────────────────────────────────────
+                # Step 5: default date range
                 html.Div(id="wizard-step-5", style={"display": "none"}, children=[
                     html.H2(t("onboarding.step5.title"), style={"fontWeight": "700", "marginBottom": "20px"}),
                     html.Div([
-                        html.Div([
-                            html.Label(t("onboarding.step5.theme"), className="form-label"),
-                            dcc.RadioItems(
-                                id="onboarding-theme",
-                                options=[
-                                    {"label": t("settings.appearance.theme.dark"), "value": "dark"},
-                                    {"label": t("settings.appearance.theme.light"), "value": "light"},
-                                ],
-                                value="dark",
-                                inline=True,
-                            ),
-                        ], className="form-group"),
                         html.Div([
                             html.Label(t("onboarding.step5.range"), className="form-label"),
                             dcc.Dropdown(

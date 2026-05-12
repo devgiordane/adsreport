@@ -38,7 +38,8 @@ def create_app() -> Dash:
     server.config["SECRET_KEY"] = _derive_flask_secret()
     server.config["SESSION_COOKIE_HTTPONLY"] = True
     server.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-    server.config["SESSION_COOKIE_SECURE"] = True
+    # Only enforce Secure cookies when running behind HTTPS (proxy sets X-Forwarded-Proto)
+    server.config["SESSION_COOKIE_SECURE"] = False
 
     from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -123,6 +124,14 @@ def _is_dash_login_callback_request() -> bool:
 def _register_onboarding_redirect(server: Flask) -> None:
     """Redirect initial page requests to onboarding while setup is incomplete."""
 
+    import flask_login as _fl
+
+    def _logout() -> ResponseReturnValue:
+        _fl.logout_user()
+        return redirect("/login")
+
+    server.add_url_rule("/logout", "logout", _logout)
+
     @server.before_request
     def guard_onboarding() -> ResponseReturnValue | None:
         from adsreport.config import get_config
@@ -136,7 +145,7 @@ def _register_onboarding_redirect(server: Flask) -> None:
 
 def _is_onboarding_exempt_path(path: str) -> bool:
     return (
-        path in {"/onboarding", "/login", "/about", "/favicon.ico"}
+        path in {"/onboarding", "/login", "/logout", "/about", "/favicon.ico"}
         or path.startswith("/assets/")
         or path.startswith("/_dash-")
     )
@@ -146,8 +155,10 @@ def _register_callbacks(app: Dash) -> None:
     import importlib
 
     for module in (
+        "adsreport.ui.callbacks.accounts_callbacks",
         "adsreport.ui.callbacks.auth_callbacks",
         "adsreport.ui.callbacks.dashboard_callbacks",
+        "adsreport.ui.callbacks.filter_callbacks",
         "adsreport.ui.callbacks.onboarding_callbacks",
         "adsreport.ui.callbacks.settings_callbacks",
     ):

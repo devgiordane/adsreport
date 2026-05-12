@@ -2,40 +2,39 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class SupportedLocale(str, Enum):
+class SupportedLocale(StrEnum):
     PT_BR = "pt-BR"
     EN_US = "en-US"
 
 
-class Theme(str, Enum):
-    DARK = "dark"
+class Theme(StrEnum):
     LIGHT = "light"
 
 
-class SyncStatus(str, Enum):
+class SyncStatus(StrEnum):
     RUNNING = "running"
     SUCCESS = "success"
     PARTIAL = "partial"
     FAILED = "failed"
 
 
-class InsightLevel(str, Enum):
+class InsightLevel(StrEnum):
     ACCOUNT = "account"
     CAMPAIGN = "campaign"
     ADSET = "adset"
     AD = "ad"
 
 
-class SyncTrigger(str, Enum):
+class SyncTrigger(StrEnum):
     SCHEDULER = "scheduler"
     MANUAL = "manual"
     ONBOARDING = "onboarding"
 
 
-class AdAccountStatus(str, Enum):
+class AdAccountStatus(StrEnum):
     ACTIVE = "active"
     DISABLED = "disabled"
 
@@ -73,7 +72,7 @@ SETTING_DEFAULTS: dict[str, object] = {
     SettingKey.LOCALE: SupportedLocale.PT_BR,
     SettingKey.TIMEZONE: "America/Sao_Paulo",
     SettingKey.ONBOARDING_COMPLETED: False,
-    SettingKey.THEME: Theme.DARK,
+    SettingKey.THEME: Theme.LIGHT,
     SettingKey.FB_API_VERSION: "v21.0",
     SettingKey.SYNC_INTERVAL_MINUTES: 60,
     SettingKey.SYNC_LOOKBACK_DAYS: 30,

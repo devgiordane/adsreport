@@ -11,7 +11,6 @@ TABS = [
     ("general", "settings.tab.general"),
     ("facebook", "settings.tab.facebook"),
     ("sync", "settings.tab.sync"),
-    ("appearance", "settings.tab.appearance"),
     ("language", "settings.tab.language"),
     ("about", "settings.tab.about"),
 ]

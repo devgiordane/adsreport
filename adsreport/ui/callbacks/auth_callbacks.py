@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 import flask_login
-from dash import Input, Output, State, callback, no_update
+from dash import Input, Output, State, callback, clientside_callback, no_update
 
 from adsreport.i18n import t
 from adsreport.services.auth_service import AuthService
+
+# Logout: bypass React Router with a direct window.location assignment
+clientside_callback(
+    "function(n) { if (n) { window.location.href = '/logout'; } return ''; }",
+    Output("nav-logout-btn", "data-clicked"),
+    Input("nav-logout-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
 
 
 @callback(

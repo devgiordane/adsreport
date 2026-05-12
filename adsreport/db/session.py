@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from adsreport.constants import DB_FILENAME
@@ -78,4 +78,41 @@ def init_db() -> None:
     import adsreport.db.models  # noqa: F401 — ensure all models are imported
     from adsreport.db.base import Base
 
-    Base.metadata.create_all(bind=get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(bind=engine)
+    _ensure_ad_account_sync_enabled(engine)
+    _ensure_insight_unique_index(engine)
+
+
+def _ensure_ad_account_sync_enabled(engine: Engine) -> None:
+    """Keep existing databases compatible with per-account sync selection."""
+    with engine.begin() as conn:
+        columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(ad_accounts)"))
+        }
+        if "sync_enabled" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE ad_accounts "
+                    "ADD COLUMN sync_enabled BOOLEAN NOT NULL DEFAULT 0"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE ad_accounts "
+                    "SET sync_enabled = CASE WHEN is_default = 1 THEN 1 ELSE 0 END"
+                )
+            )
+
+
+def _ensure_insight_unique_index(engine: Engine) -> None:
+    """Keep existing databases from using the old single-account insight index."""
+    with engine.begin() as conn:
+        conn.execute(text("DROP INDEX IF EXISTS ix_insights_level_entity_date"))
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_insights_account_level_entity_date "
+                "ON insights (ad_account_id, level, entity_id, date)"
+            )
+        )

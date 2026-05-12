@@ -25,14 +25,20 @@ def sidebar(active_path: str = "/") -> html.Div:
                     dcc.Link(
                         [html.Span(icon), t(key_str)],
                         href=href,
-                        className=f"nav-link{'nav-link--active' if active_path == href else ''}",
+                        className=f"nav-link{' nav-link--active' if active_path == href else ''}",
                     )
                     for href, key_str, icon in links
                 ]
             ),
             html.Div(style={"flex": "1"}),
             html.Div(
-                dcc.Link(t("nav.logout"), href="/logout", className="nav-link"),
+                html.Button(
+                    t("nav.logout"),
+                    id="nav-logout-btn",
+                    n_clicks=0,
+                    className="nav-link",
+                    style={"background": "none", "border": "none", "cursor": "pointer", "width": "100%", "textAlign": "left"},
+                ),
                 style={"borderTop": "1px solid var(--border)", "paddingTop": "8px"},
             ),
         ],

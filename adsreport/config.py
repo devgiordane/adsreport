@@ -48,7 +48,7 @@ class AppConfig:
     locale: str = SupportedLocale.PT_BR
     timezone: str = "America/Sao_Paulo"
     onboarding_completed: bool = False
-    theme: str = Theme.DARK
+    theme: str = Theme.LIGHT
     facebook: FacebookConfig = field(default_factory=FacebookConfig)
     sync: SyncConfig = field(default_factory=SyncConfig)
     dashboard: DashboardConfig = field(default_factory=DashboardConfig)

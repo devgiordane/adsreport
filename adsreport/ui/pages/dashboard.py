@@ -2,7 +2,6 @@ import dash
 from dash import dcc, html
 
 from adsreport.i18n import t
-from adsreport.ui.components.empty_state import empty_state
 from adsreport.ui.components.filter_bar import filter_bar
 from adsreport.ui.components.navbar import navbar
 from adsreport.ui.components.sidebar import sidebar
@@ -17,16 +16,35 @@ def layout() -> object:
             html.Div(
                 [
                     navbar(t("dashboard.title")),
-                    filter_bar(),
-                    html.Div(id="dashboard-kpi-grid", className="kpi-grid"),
                     html.Div(
                         [
-                            html.Div(id="dashboard-timeseries", style={"flex": "2"}),
-                            html.Div(id="dashboard-breakdown", style={"flex": "1"}),
+                            html.Button(
+                                t("dashboard.export_pdf"),
+                                id="dashboard-export-pdf-btn",
+                                n_clicks=0,
+                                className="btn btn--secondary",
+                            ),
+                            dcc.Store(id="dashboard-print-store"),
                         ],
-                        style={"display": "flex", "gap": "16px"},
+                        className="dashboard-export-actions",
                     ),
-                    html.Div(id="dashboard-top-campaigns"),
+                    filter_bar(),
+                    html.Div(id="dashboard-sync-msg", style={"fontSize": "13px"}),
+                    html.Div(
+                        [
+                            html.Div(id="dashboard-kpi-grid", className="kpi-grid"),
+                            html.Div(
+                                [
+                                    html.Div(id="dashboard-timeseries", className="dashboard-chart-main"),
+                                    html.Div(id="dashboard-breakdown", className="dashboard-chart-side"),
+                                ],
+                                className="dashboard-chart-row",
+                            ),
+                            html.Div(id="dashboard-top-campaigns"),
+                        ],
+                        id="dashboard-report",
+                        className="dashboard-report-a4",
+                    ),
                     dcc.Interval(id="dashboard-poll", interval=30_000, n_intervals=0),
                 ],
                 className="main-content",

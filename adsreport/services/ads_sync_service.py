@@ -14,6 +14,7 @@ from adsreport.db.models.insight import Insight
 from adsreport.db.models.sync_run import SyncRun
 from adsreport.db.session import get_session
 from adsreport.repositories.ad_account_repo import AdAccountRepository
+from adsreport.repositories.adset_repo import AdSetRepository
 from adsreport.repositories.campaign_repo import CampaignRepository
 from adsreport.repositories.insight_repo import InsightRepository
 from adsreport.repositories.sync_run_repo import SyncRunRepository
@@ -70,6 +71,7 @@ class AdsSyncService:
         self._owns_session = session is None
         self._session = session or get_session()
         self._accounts = AdAccountRepository(self._session)
+        self._adsets = AdSetRepository(self._session)
         self._campaigns = CampaignRepository(self._session)
         self._insights = InsightRepository(self._session)
         self._runs = SyncRunRepository(self._session)
@@ -92,7 +94,7 @@ class AdsSyncService:
         date_to: date,
         triggered_by: str = SyncTrigger.SCHEDULER,
     ) -> list[SyncRun]:
-        accounts = self._accounts.get_all_active()
+        accounts = self._accounts.get_sync_enabled()
         results = []
         for account in accounts:
             run = self.sync_account(account.id, date_from, date_to, triggered_by)
@@ -162,11 +164,45 @@ class AdsSyncService:
             fb_account_id, str(date_from), str(date_to), level=level
         )
         count = 0
+        synced_metadata: set[tuple[str, str]] = set()
         for raw in raw_insights:
+            self._upsert_metadata(raw, account.id, synced_metadata)
             insight = self._map_insight(raw, level, account.id)
             self._insights.upsert(insight)
             count += 1
         return count
+
+    def _upsert_metadata(
+        self,
+        raw: dict[str, object],
+        ad_account_id: str,
+        synced_metadata: set[tuple[str, str]],
+    ) -> None:
+        campaign_fb_id = str(raw.get("campaign_id") or "")
+        if campaign_fb_id and ("campaign", campaign_fb_id) not in synced_metadata:
+            self._campaigns.upsert_from_fb(
+                {
+                    "id": campaign_fb_id,
+                    "name": raw.get("campaign_name") or campaign_fb_id,
+                },
+                ad_account_id,
+            )
+            synced_metadata.add(("campaign", campaign_fb_id))
+
+        adset_fb_id = str(raw.get("adset_id") or "")
+        if not adset_fb_id or not campaign_fb_id or ("adset", adset_fb_id) in synced_metadata:
+            return
+
+        campaign = self._campaigns.get_by_fb_id(campaign_fb_id)
+        if campaign is None:
+            return
+        self._adsets.upsert_from_insight(
+            adset_fb_id,
+            str(raw.get("adset_name") or adset_fb_id),
+            campaign.id,
+            ad_account_id,
+        )
+        synced_metadata.add(("adset", adset_fb_id))
 
     def _map_insight(self, raw: dict[str, object], level: str, ad_account_id: str) -> Insight:
         actions = _actions(raw.get("actions"))

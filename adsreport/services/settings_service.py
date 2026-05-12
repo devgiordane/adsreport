@@ -7,11 +7,14 @@ from typing import TYPE_CHECKING, Any
 
 from adsreport.config import AppConfig, DashboardConfig, FacebookConfig, SyncConfig
 from adsreport.constants import SETTING_DEFAULTS, SettingKey
-from adsreport.core.crypto import decrypt, encrypt
+from adsreport.core.crypto import decrypt, decrypt_secret, encrypt, encrypt_secret
+from adsreport.core.errors import CryptoError
 from adsreport.repositories.settings_repo import SettingsRepository
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+    from adsreport.db.models.settings import AppSetting
 
 
 _SECRET_KEYS = {
@@ -39,23 +42,24 @@ class SettingsService:
         if setting is None:
             return SETTING_DEFAULTS.get(key)
         if setting.is_secret:
-            if password is None:
-                raise ValueError(f"Password required to read secret: {key}")
-            raw = setting.value_encrypted or ""
-            return decrypt(raw, password) if raw else ""
+            value, _locked = self._decrypt_setting(setting, password)
+            return value
         return self._coerce(setting.value_plain, setting.value_type)
 
     def set(self, key: str, value: Any, password: str | None = None) -> None:
-        is_secret = key in _SECRET_KEYS
-        if is_secret:
-            if password is None:
-                raise ValueError(f"Password required to write secret: {key}")
+        if key in _SECRET_KEYS:
+            if password:
+                encrypted = encrypt(str(value), password)
+                value_type = "password"
+            else:
+                encrypted = encrypt_secret(str(value))
+                value_type = "string"
             self._repo.upsert(
                 key,
-                value_encrypted=encrypt(str(value), password),
+                value_encrypted=encrypted,
                 value_plain=None,
                 is_secret=True,
-                value_type="string",
+                value_type=value_type,
             )
         else:
             value_type, serialized = self._serialize(value)
@@ -69,30 +73,22 @@ class SettingsService:
 
     def load_config(self, password: str | None = None) -> AppConfig:
         def g(key: str) -> Any:
-            return self.get(key, password)
+            return self.get(key)
 
-        credentials_locked = password is None and any(
-            self._secret_is_set(key) for key in _SECRET_KEYS
-        )
-
-        if password is None:
-            facebook_access_token = ""
-            facebook_app_id = ""
-            facebook_app_secret = ""
-        else:
-            facebook_access_token = g(SettingKey.FB_ACCESS_TOKEN) or ""
-            facebook_app_id = g(SettingKey.FB_APP_ID) or ""
-            facebook_app_secret = g(SettingKey.FB_APP_SECRET) or ""
+        app_id, app_id_locked = self._get_secret(SettingKey.FB_APP_ID, password)
+        app_secret, app_secret_locked = self._get_secret(SettingKey.FB_APP_SECRET, password)
+        access_token, token_locked = self._get_secret(SettingKey.FB_ACCESS_TOKEN, password)
+        credentials_locked = app_id_locked or app_secret_locked or token_locked
 
         return AppConfig(
             locale=g(SettingKey.LOCALE) or "pt-BR",
             timezone=g(SettingKey.TIMEZONE) or "America/Sao_Paulo",
             onboarding_completed=bool(g(SettingKey.ONBOARDING_COMPLETED)),
-            theme=g(SettingKey.THEME) or "dark",
+            theme="light",
             facebook=FacebookConfig(
-                access_token=facebook_access_token,
-                app_id=facebook_app_id,
-                app_secret=facebook_app_secret,
+                access_token=access_token if not credentials_locked else "",
+                app_id=app_id if not credentials_locked else "",
+                app_secret=app_secret if not credentials_locked else "",
                 api_version=g(SettingKey.FB_API_VERSION) or "v21.0",
                 default_account_id=g(SettingKey.FB_DEFAULT_ACCOUNT_ID) or "",
                 credentials_locked=credentials_locked,
@@ -108,12 +104,32 @@ class SettingsService:
             ),
         )
 
+    def _get_secret(self, key: str, password: str | None) -> tuple[str, bool]:
+        setting = self._repo.get_by_key(key)
+        if setting is None:
+            return "", False
+        return self._decrypt_setting(setting, password)
+
+    def _decrypt_setting(self, setting: AppSetting, password: str | None) -> tuple[str, bool]:
+        raw = setting.value_encrypted or ""
+        if not raw:
+            return "", False
+
+        if setting.value_type == "password":
+            if not password:
+                return "", True
+            try:
+                return decrypt(raw, password), False
+            except CryptoError:
+                return "", True
+
+        try:
+            return decrypt_secret(raw), False
+        except CryptoError:
+            return "", True
+
     def complete_onboarding(self) -> None:
         self.set(SettingKey.ONBOARDING_COMPLETED, True)
-
-    def _secret_is_set(self, key: str) -> bool:
-        setting = self._repo.get_by_key(key)
-        return bool(setting and setting.is_secret and setting.value_encrypted)
 
     def _coerce(self, value: str | None, value_type: str) -> Any:
         if value is None:

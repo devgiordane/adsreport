@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from adsreport.core.logging import get_logger
 from adsreport.jobs.cleanup_job import run_cleanup
-from adsreport.jobs.sync_job import run_sync
+from adsreport.jobs.sync_job import run_sync, run_sync_range
 
 logger = get_logger(__name__)
 
@@ -51,18 +51,49 @@ class SchedulerService:
             _scheduler.shutdown(wait=False)
             _scheduler = None
 
-    def trigger_sync_now(self, triggered_by: str = "manual") -> None:
+    def trigger_sync_now(
+        self,
+        triggered_by: str = "manual",
+        account_ids: list[str] | None = None,
+    ) -> None:
         global _scheduler
         if _scheduler is None:
             self.start()
         _scheduler.add_job(  # type: ignore[union-attr]
             run_sync,
             "date",
-            kwargs={"triggered_by": triggered_by},
+            kwargs={"triggered_by": triggered_by, "account_ids": account_ids},
             replace_existing=False,
             max_instances=1,
         )
-        logger.info("sync_triggered_manually", triggered_by=triggered_by)
+        logger.info("sync_triggered_manually", triggered_by=triggered_by, account_ids=account_ids)
+
+    def trigger_sync_range_now(
+        self,
+        triggered_by: str = "manual",
+        account_ids: list[str] | None = None,
+        date_preset: str | None = None,
+    ) -> None:
+        global _scheduler
+        if _scheduler is None:
+            self.start()
+        _scheduler.add_job(  # type: ignore[union-attr]
+            run_sync_range,
+            "date",
+            kwargs={
+                "triggered_by": triggered_by,
+                "account_ids": account_ids,
+                "date_preset": date_preset,
+            },
+            replace_existing=False,
+            max_instances=1,
+        )
+        logger.info(
+            "sync_range_triggered_manually",
+            triggered_by=triggered_by,
+            account_ids=account_ids,
+            date_preset=date_preset,
+        )
 
     def update_interval(self, minutes: int) -> None:
         global _scheduler

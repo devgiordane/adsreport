@@ -13,5 +13,4 @@ def build_layout() -> html.Div:
             html.Div(id="app-shell", children=dash.page_container),
         ],
         id="app-root",
-        **{"data-theme": "dark"},
     )

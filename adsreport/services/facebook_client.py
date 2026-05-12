@@ -5,7 +5,10 @@ All Facebook API calls go through this class — never directly from callbacks o
 
 from __future__ import annotations
 
-from typing import Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -85,27 +88,35 @@ class FacebookClient:
         date_from: str,
         date_to: str,
         level: str = "campaign",
+        fields: Sequence[str] | None = None,
+        breakdowns: Sequence[str] | None = None,
+        action_breakdowns: Sequence[str] | None = None,
+        time_increment: int | str = 1,
     ) -> list[dict[str, Any]]:
         try:
             from facebook_business.adobjects.adaccount import AdAccount
 
             acct_id = f"act_{account_id}" if not account_id.startswith("act_") else account_id
             account = AdAccount(acct_id)
+            default_fields = [
+                "date_start", "campaign_id", "campaign_name",
+                "adset_id", "adset_name", "ad_id", "ad_name",
+                "impressions", "clicks", "spend", "reach", "frequency",
+                "ctr", "cpc", "cpm", "actions", "action_values",
+            ]
             params = {
                 "level": level,
                 "time_range": {"since": date_from, "until": date_to},
-                "time_increment": 1,
-                "fields": [
-                    "date_start", "campaign_id", "adset_id", "ad_id",
-                    "impressions", "clicks", "spend", "reach", "frequency",
-                    "ctr", "cpc", "cpm", "actions", "action_values",
-                ],
+                "time_increment": time_increment,
+                "fields": list(fields or default_fields),
             }
+            if breakdowns:
+                params["breakdowns"] = list(breakdowns)
+            if action_breakdowns:
+                params["action_breakdowns"] = list(action_breakdowns)
             cursor = account.get_insights(params=params)
-            results: list[dict[str, Any]] = []
-            for page in cursor:
-                results.extend([dict(r) for r in page])
-            return results
+            # The SDK cursor iterates over individual objects — no inner loop needed
+            return [dict(r) for r in cursor]
         except Exception as exc:
             self._handle_exc(exc)
 
