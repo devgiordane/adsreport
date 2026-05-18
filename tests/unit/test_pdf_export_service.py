@@ -20,6 +20,9 @@ class _Summary:
     ctr = 4.25
     clicks = 980
     impressions = 23000
+    reach = 0
+    cpm_cents = 5700
+    cpc_cents = 126
 
 
 @dataclass
@@ -36,6 +39,7 @@ class _Row:
 @dataclass
 class _Report:
     summary: object = field(default_factory=_Summary)
+    prev_summary: object = field(default_factory=_Summary)
     top_campaigns: list[object] = field(default_factory=lambda: [_Row("Launch Campaign With A Very Long Name")])
     top_adsets: list[object] = field(default_factory=list)
 
