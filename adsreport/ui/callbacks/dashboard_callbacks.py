@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import base64
 import logging
+from datetime import datetime
+from typing import Any
 
 import plotly.graph_objects as go
-from dash import Input, Output, State, callback, clientside_callback, html, no_update
+from dash import Input, Output, State, callback, html, no_update
 
 from adsreport.core.time import (
     comparison_date_range,
@@ -13,8 +16,13 @@ from adsreport.core.time import (
     format_percent,
 )
 from adsreport.db.session import session_scope
-from adsreport.i18n import t
+from adsreport.i18n import current_locale, t
 from adsreport.repositories.ad_account_repo import AdAccountRepository
+from adsreport.services.pdf_export_service import (
+    PDFExportService,
+    PDFRendererUnavailableError,
+    PDFReportContext,
+)
 from adsreport.services.report_service import ReportService
 from adsreport.services.scheduler_service import SchedulerService
 from adsreport.ui.components.chart_block import chart_block
@@ -25,22 +33,8 @@ from adsreport.ui.theme import plotly_template
 
 _log = logging.getLogger(__name__)
 
-clientside_callback(
-    """
-    function(n_clicks) {
-        if (n_clicks) {
-            window.setTimeout(function() { window.print(); }, 50);
-        }
-        return n_clicks || 0;
-    }
-    """,
-    Output("dashboard-print-store", "data"),
-    Input("dashboard-export-pdf-btn", "n_clicks"),
-    prevent_initial_call=True,
-)
 
-
-@callback(
+@callback(  # type: ignore[untyped-decorator]
     Output("dashboard-kpi-grid", "children"),
     Output("dashboard-timeseries", "children"),
     Output("dashboard-breakdown", "children"),
@@ -55,7 +49,7 @@ def update_dashboard(
     account_ids: list[str] | None,
     campaign_ids: list[str] | str | None,
     _poll: int,
-) -> tuple[object, object, object, object]:
+) -> tuple[Any, Any, Any, Any]:
     period = period or "last_7_days"
 
     try:
@@ -94,7 +88,82 @@ def update_dashboard(
     )
 
 
-@callback(
+@callback(  # type: ignore[untyped-decorator]
+    Output("dashboard-pdf-download", "data"),
+    Output("dashboard-export-status", "children"),
+    Input("dashboard-export-pdf-btn", "n_clicks"),
+    State("filter-period", "value"),
+    State("filter-account", "value"),
+    State("filter-campaign", "value"),
+    prevent_initial_call=True,
+    running=[(Output("dashboard-export-pdf-btn", "disabled"), True, False)],
+)
+def export_dashboard_pdf(
+    n_clicks: int | None,
+    period: str | None,
+    account_ids: list[str] | str | None,
+    campaign_ids: list[str] | str | None,
+) -> tuple[dict[str, Any] | Any, Any]:
+    if not n_clicks:
+        return no_update, no_update
+
+    period = period or "last_7_days"
+    try:
+        with session_scope() as session:
+            repo = AdAccountRepository(session)
+            accounts = _select_accounts(_normalize_ids(account_ids), repo)
+            if not accounts:
+                return no_update, _export_status("warning", t("dashboard.export.no_data"))
+
+            date_from, date_to = date_range(period)
+            prev_date_from, prev_date_to = comparison_date_range(period, date_from, date_to)
+            report = ReportService(session).get_dashboard_data_for_accounts(
+                [account.id for account in accounts],
+                date_from,
+                date_to,
+                prev_date_from,
+                prev_date_to,
+                _normalize_ids(campaign_ids),
+            )
+            if not report.has_data:
+                return no_update, _export_status("warning", t("dashboard.export.no_data"))
+
+            currency = _resolve_currency([account.currency for account in accounts])
+            context = PDFReportContext(
+                account_names=[account.name for account in accounts],
+                date_from=date_from,
+                date_to=date_to,
+                generated_at=datetime.now(),
+                currency=currency,
+                data_freshness=_latest_sync(accounts),
+                locale=current_locale(),
+            )
+            template = plotly_template()
+            result = PDFExportService().generate_dashboard_pdf(
+                report,
+                context,
+                _leads_timeseries_figure(report.time_series, template),
+                _breakdown_figure(report.top_campaigns, template),
+            )
+    except PDFRendererUnavailableError:
+        _log.exception("Styled PDF renderer is unavailable")
+        return no_update, _export_status("error", t("dashboard.export.renderer_missing"))
+    except Exception:
+        _log.exception("Failed to export dashboard PDF")
+        return no_update, _export_status("error", t("dashboard.export.error"))
+
+    return (
+        {
+            "content": base64.b64encode(result.content).decode("ascii"),
+            "filename": result.filename,
+            "type": result.content_type,
+            "base64": True,
+        },
+        _export_status("success", t("dashboard.export.ready")),
+    )
+
+
+@callback(  # type: ignore[untyped-decorator]
     Output("dashboard-sync-msg", "children"),
     Input("dashboard-sync-btn", "n_clicks"),
     State("filter-account", "value"),
@@ -103,7 +172,7 @@ def update_dashboard(
 def trigger_dashboard_sync(
     n_clicks: int | None,
     account_ids: list[str] | str | None,
-) -> object:
+) -> Any:
     if not n_clicks:
         return no_update
 
@@ -125,18 +194,18 @@ def trigger_dashboard_sync(
     )
 
 
-def _select_accounts(account_ids: list[str], repo: AdAccountRepository) -> list[object]:
+def _select_accounts(account_ids: list[str], repo: AdAccountRepository) -> list[Any]:
     if account_ids:
         return [a for a in (repo.get_by_id(aid) for aid in account_ids) if a is not None]
     default = repo.get_default()
     return [default] if default else repo.get_all_active()
 
 
-def _empty_dashboard() -> tuple[object, object, object, object]:
+def _empty_dashboard() -> tuple[Any, Any, Any, Any]:
     return [], empty_state("no_data", on_cta_id="dashboard-sync-btn"), html.Div(), html.Div()
 
 
-def _kpi_cards(s: object, p: object, currency: str = "BRL") -> list[html.Div]:
+def _kpi_cards(s: Any, p: Any, currency: str = "BRL") -> list[html.Div]:
     def delta(curr: float, prev: float) -> float | None:
         if prev == 0:
             return None
@@ -161,7 +230,12 @@ def _kpi_cards(s: object, p: object, currency: str = "BRL") -> list[html.Div]:
     return cards
 
 
-def _leads_timeseries_block(time_series: list[object], template: dict[str, object]) -> html.Div:
+def _leads_timeseries_block(time_series: list[Any], template: dict[str, Any]) -> html.Div:
+    fig = _leads_timeseries_figure(time_series, template)
+    return chart_block(t("dashboard.chart.timeseries.title"), fig, "dashboard-timeseries-graph")
+
+
+def _leads_timeseries_figure(time_series: list[Any], template: dict[str, Any]) -> go.Figure:
     dates = [str(pt.date) for pt in time_series]
     fig = go.Figure(
         [
@@ -183,10 +257,15 @@ def _leads_timeseries_block(time_series: list[object], template: dict[str, objec
         yaxis_title=t("dashboard.chart.timeseries.yaxis"),
     )
     fig.update_yaxes(rangemode="tozero", tickformat=",d")
-    return chart_block(t("dashboard.chart.timeseries.title"), fig, "dashboard-timeseries-graph")
+    return fig
 
 
-def _build_breakdown_block(top_campaigns: list[object], template: dict[str, object]) -> html.Div:
+def _build_breakdown_block(top_campaigns: list[Any], template: dict[str, Any]) -> html.Div:
+    fig = _breakdown_figure(top_campaigns, template)
+    return chart_block(t("dashboard.chart.breakdown.title"), fig, "dashboard-breakdown-graph")
+
+
+def _breakdown_figure(top_campaigns: list[Any], template: dict[str, Any]) -> go.Figure:
     campaigns = top_campaigns[:8]
     fig = go.Figure(
         go.Bar(
@@ -196,10 +275,10 @@ def _build_breakdown_block(top_campaigns: list[object], template: dict[str, obje
         )
     )
     fig.update_layout(**template["layout"])
-    return chart_block(t("dashboard.chart.breakdown.title"), fig, "dashboard-breakdown-graph")
+    return fig
 
 
-def _build_campaign_tables(report: object, currency: str) -> html.Div:
+def _build_campaign_tables(report: Any, currency: str) -> html.Div:
     s = report.summary
     base_columns = [
         {"name": t("dashboard.table.spend"), "id": "spend"},
@@ -236,7 +315,7 @@ def _build_campaign_tables(report: object, currency: str) -> html.Div:
     return html.Div(tables, style={"display": "flex", "flexDirection": "column", "gap": "16px"})
 
 
-def _entity_rows(rows: list[object], currency: str = "BRL") -> list[dict[str, str]]:
+def _entity_rows(rows: list[Any], currency: str = "BRL") -> list[dict[str, str]]:
     return [
         {
             "entity_id": row.name,
@@ -267,3 +346,18 @@ def _normalize_ids(ids: list[str] | str | None) -> list[str]:
     if isinstance(ids, str):
         return [ids]
     return [item for item in ids if item]
+
+
+def _latest_sync(accounts: list[Any]) -> datetime | None:
+    timestamps = [getattr(account, "last_synced_at", None) for account in accounts]
+    valid = [ts for ts in timestamps if ts is not None]
+    return max(valid) if valid else None
+
+
+def _export_status(kind: str, message: str) -> html.Span:
+    color = {
+        "success": "var(--success)",
+        "warning": "var(--warning)",
+        "error": "var(--danger)",
+    }.get(kind, "var(--text-muted)")
+    return html.Span(message, className=f"dashboard-export-status__message dashboard-export-status__message--{kind}", style={"color": color})

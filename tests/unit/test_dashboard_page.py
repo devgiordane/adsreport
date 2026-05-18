@@ -29,9 +29,13 @@ def test_dashboard_has_a4_pdf_export_button(monkeypatch) -> None:
 
     rendered = dashboard_page.layout()
     button = _find_by_id(rendered, "dashboard-export-pdf-btn")
+    download = _find_by_id(rendered, "dashboard-pdf-download")
+    status = _find_by_id(rendered, "dashboard-export-status")
     report = _find_by_id(rendered, "dashboard-report")
 
     assert button is not None
     assert button.children == "Export A4 PDF"
+    assert download is not None
+    assert status is not None
     assert report is not None
     assert report.className == "dashboard-report-a4"

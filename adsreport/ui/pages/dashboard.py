@@ -18,13 +18,19 @@ def layout() -> object:
                     navbar(t("dashboard.title")),
                     html.Div(
                         [
-                            html.Button(
-                                t("dashboard.export_pdf"),
-                                id="dashboard-export-pdf-btn",
-                                n_clicks=0,
-                                className="btn btn--secondary",
+                            html.Div(
+                                [
+                                    html.Button(
+                                        t("dashboard.export_pdf"),
+                                        id="dashboard-export-pdf-btn",
+                                        n_clicks=0,
+                                        className="btn btn--secondary dashboard-export-button",
+                                    ),
+                                    dcc.Download(id="dashboard-pdf-download"),
+                                ],
+                                className="dashboard-export-actions__controls",
                             ),
-                            dcc.Store(id="dashboard-print-store"),
+                            html.Div(id="dashboard-export-status", className="dashboard-export-status"),
                         ],
                         className="dashboard-export-actions",
                     ),

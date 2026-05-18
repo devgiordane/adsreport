@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from unittest.mock import MagicMock
 
 from dash import html
 
 from adsreport.i18n import set_locale
 from adsreport.ui.callbacks import dashboard_callbacks
-
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -447,3 +447,165 @@ def test_trigger_dashboard_sync_returns_error_span_on_exception(monkeypatch):
     assert isinstance(result, html.Span)
     assert result.style["color"] == "var(--danger)"
     assert "Could not start sync" in result.children
+
+
+# ---------------------------------------------------------------------------
+# export_dashboard_pdf
+# ---------------------------------------------------------------------------
+
+
+@contextmanager
+def _fake_session_scope():
+    yield object()
+
+
+def test_export_dashboard_pdf_returns_download_data(monkeypatch):
+    set_locale("en-US")
+    account = MagicMock()
+    account.id = "acc-1"
+    account.name = "Main Account"
+    account.currency = "BRL"
+    account.last_synced_at = datetime(2026, 5, 18, 9, 0)
+
+    class FakeRepo:
+        def __init__(self, session):
+            pass
+
+    monkeypatch.setattr(dashboard_callbacks, "session_scope", _fake_session_scope)
+    monkeypatch.setattr(dashboard_callbacks, "AdAccountRepository", FakeRepo)
+    monkeypatch.setattr(dashboard_callbacks, "_select_accounts", lambda ids, repo: [account])
+    monkeypatch.setattr(dashboard_callbacks, "date_range", lambda period: (date(2026, 5, 1), date(2026, 5, 18)))
+    monkeypatch.setattr(
+        dashboard_callbacks,
+        "comparison_date_range",
+        lambda period, date_from, date_to: (date(2026, 4, 13), date(2026, 4, 30)),
+    )
+
+    class FakeReport(_ReportData):
+        has_data = True
+        prev_summary = _Summary()
+        time_series = []
+
+    fake_report = FakeReport(summary=_Summary(), top_campaigns=[_CampaignRow("C1")])
+
+    class FakeReportService:
+        def __init__(self, session):
+            pass
+
+        def get_dashboard_data_for_accounts(self, *args, **kwargs):
+            return fake_report
+
+    class FakePDFService:
+        def generate_dashboard_pdf(self, report, context, timeseries_figure, breakdown_figure):
+            assert report is fake_report
+            assert context.account_names == ["Main Account"]
+            result = MagicMock()
+            result.content = b"%PDF report"
+            result.filename = "adsreport-main-account-2026-05-01-2026-05-18.pdf"
+            result.content_type = "application/pdf"
+            return result
+
+    monkeypatch.setattr(dashboard_callbacks, "ReportService", FakeReportService)
+    monkeypatch.setattr(dashboard_callbacks, "PDFExportService", FakePDFService)
+
+    download, status = dashboard_callbacks.export_dashboard_pdf(1, "last_7_days", ["acc-1"], None)
+
+    assert download["filename"] == "adsreport-main-account-2026-05-01-2026-05-18.pdf"
+    assert download["type"] == "application/pdf"
+    assert download["base64"] is True
+    assert status.children == "PDF report ready."
+
+
+def test_export_dashboard_pdf_reports_no_data(monkeypatch):
+    set_locale("en-US")
+    account = MagicMock()
+    account.id = "acc-1"
+    account.name = "Main Account"
+    account.currency = "BRL"
+    account.last_synced_at = None
+
+    monkeypatch.setattr(dashboard_callbacks, "session_scope", _fake_session_scope)
+    monkeypatch.setattr(dashboard_callbacks, "AdAccountRepository", lambda session: MagicMock())
+    monkeypatch.setattr(dashboard_callbacks, "_select_accounts", lambda ids, repo: [account])
+    monkeypatch.setattr(dashboard_callbacks, "date_range", lambda period: (date(2026, 5, 1), date(2026, 5, 18)))
+    monkeypatch.setattr(
+        dashboard_callbacks,
+        "comparison_date_range",
+        lambda period, date_from, date_to: (date(2026, 4, 13), date(2026, 4, 30)),
+    )
+
+    class EmptyReport:
+        has_data = False
+
+    class FakeReportService:
+        def __init__(self, session):
+            pass
+
+        def get_dashboard_data_for_accounts(self, *args, **kwargs):
+            return EmptyReport()
+
+    monkeypatch.setattr(dashboard_callbacks, "ReportService", FakeReportService)
+
+    download, status = dashboard_callbacks.export_dashboard_pdf(1, "last_7_days", ["acc-1"], None)
+
+    from dash import no_update
+
+    assert download is no_update
+    assert status.children == "No reportable data for the selected filters."
+
+
+def test_export_dashboard_pdf_reports_failure(monkeypatch):
+    set_locale("en-US")
+    monkeypatch.setattr(dashboard_callbacks, "session_scope", lambda: (_ for _ in ()).throw(RuntimeError("db down")))
+
+    download, status = dashboard_callbacks.export_dashboard_pdf(1, "last_7_days", None, None)
+
+    from dash import no_update
+
+    assert download is no_update
+    assert status.children == "Could not generate the PDF report. Please try again."
+
+
+def test_export_dashboard_pdf_reports_missing_renderer(monkeypatch):
+    set_locale("en-US")
+    account = MagicMock()
+    account.id = "acc-1"
+    account.name = "Main Account"
+    account.currency = "BRL"
+    account.last_synced_at = None
+
+    monkeypatch.setattr(dashboard_callbacks, "session_scope", _fake_session_scope)
+    monkeypatch.setattr(dashboard_callbacks, "AdAccountRepository", lambda session: MagicMock())
+    monkeypatch.setattr(dashboard_callbacks, "_select_accounts", lambda ids, repo: [account])
+    monkeypatch.setattr(dashboard_callbacks, "date_range", lambda period: (date(2026, 5, 1), date(2026, 5, 18)))
+    monkeypatch.setattr(
+        dashboard_callbacks,
+        "comparison_date_range",
+        lambda period, date_from, date_to: (date(2026, 4, 13), date(2026, 4, 30)),
+    )
+
+    class FakeReport(_ReportData):
+        has_data = True
+        prev_summary = _Summary()
+        time_series = []
+
+    class FakeReportService:
+        def __init__(self, session):
+            pass
+
+        def get_dashboard_data_for_accounts(self, *args, **kwargs):
+            return FakeReport(summary=_Summary(), top_campaigns=[_CampaignRow("C1")])
+
+    class MissingRendererPDFService:
+        def generate_dashboard_pdf(self, *args, **kwargs):
+            raise dashboard_callbacks.PDFRendererUnavailableError("missing")
+
+    monkeypatch.setattr(dashboard_callbacks, "ReportService", FakeReportService)
+    monkeypatch.setattr(dashboard_callbacks, "PDFExportService", MissingRendererPDFService)
+
+    download, status = dashboard_callbacks.export_dashboard_pdf(1, "last_7_days", ["acc-1"], None)
+
+    from dash import no_update
+
+    assert download is no_update
+    assert status.children == "Styled PDF renderer is not installed. Run poetry install and restart AdsReport."

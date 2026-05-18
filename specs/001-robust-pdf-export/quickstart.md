@@ -41,6 +41,13 @@ hatch run test tests/unit/test_dashboard_page.py
 hatch run test tests/e2e/test_dashboard_smoke.py
 ```
 
+If `hatch` is not installed in the local shell, run the same checks with:
+
+```powershell
+python -m pytest tests/unit/test_pdf_export_service.py tests/unit/test_dashboard_callbacks.py tests/unit/test_dashboard_page.py
+python -m pytest
+```
+
 ## Regression Checklist
 
 - Existing dashboard data still loads from `ReportService`.
