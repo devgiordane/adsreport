@@ -255,6 +255,33 @@ class ReportService:
         sorted_rows = sorted(by_campaign.values(), key=lambda x: x.spend_cents, reverse=True)
         return sorted_rows[:limit]
 
+    def get_campaign_rows(
+        self,
+        ad_account_ids: list[str],
+        date_from: date,
+        date_to: date,
+        campaign_ids: list[str] | None = None,
+        limit: int = 100,
+    ) -> tuple[KPISummary, list[CampaignRow]]:
+        insights = self._insights.get_by_accounts_range(
+            ad_account_ids, date_from, date_to, level="campaign", entity_ids=campaign_ids
+        )
+        if not insights:
+            return KPISummary(), []
+        return self._aggregate(insights), self._top_campaigns(insights, limit=limit)
+
+    def get_campaign_timeseries(
+        self,
+        ad_account_ids: list[str],
+        date_from: date,
+        date_to: date,
+        entity_id: str,
+    ) -> list[TimeSeriesPoint]:
+        insights = self._insights.get_by_accounts_range(
+            ad_account_ids, date_from, date_to, level="campaign", entity_ids=[entity_id]
+        )
+        return self._build_time_series(insights)
+
     def _prev_period(self, date_from: date, date_to: date) -> tuple[date, date]:
         from datetime import timedelta
 

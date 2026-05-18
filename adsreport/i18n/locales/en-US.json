@@ -135,6 +135,7 @@
   "campaigns.table.ctr": "CTR",
   "campaigns.table.roas": "ROAS",
   "campaigns.table.leads": "Leads",
+  "campaigns.drill.title": "Campaign: {name}",
 
   "accounts.title": "Ad Accounts",
   "accounts.table.name": "Name",

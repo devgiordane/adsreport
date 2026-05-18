@@ -157,6 +157,7 @@ def _register_callbacks(app: Dash) -> None:
     for module in (
         "adsreport.ui.callbacks.accounts_callbacks",
         "adsreport.ui.callbacks.auth_callbacks",
+        "adsreport.ui.callbacks.campaigns_callbacks",
         "adsreport.ui.callbacks.dashboard_callbacks",
         "adsreport.ui.callbacks.filter_callbacks",
         "adsreport.ui.callbacks.onboarding_callbacks",
